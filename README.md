@@ -5,4 +5,5 @@ Upload various data to azure blobs from nodejs. Library is written in TypeScript
 ```
 npm test
 ```
-Test are written in TypeScript as well. They got precompiled before each run.
+AZURE_STORAGE_CONNECTION_STRING environment variable should be set in order to allow tests to connect Azure.
+Tests are written in TypeScript as well. They got precompiled before each run.
