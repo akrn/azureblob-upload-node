@@ -4,7 +4,7 @@
 const azure = require('azure-storage');
 
 
-export interface IBlobStorage {
+interface IBlobStorage {
     save(folderName: string, name: string, object: any): Promise<boolean>;
 
     read(folderName: string, name: string): NodeJS.ReadableStream;
@@ -17,10 +17,14 @@ export default class AzureBlobStorage implements IBlobStorage {
     blobStorageContainerName: string;
     folderName: string;
 
+    log: (...args) => void;
+
     /**
      * Optional folderName parameter can be set in order to use shortcut save/read methods
      */
-    constructor(connectionString: string, containerName: string) {
+    constructor(connectionString: string, containerName: string, verbose?: boolean) {
+        this.log = verbose ? console.log.bind(console) : () => void 0;
+
         this.blobService = azure.createBlobService();
         this.blobStorageContainerName = containerName;
     }

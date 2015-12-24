@@ -4,7 +4,8 @@
   "description": "Upload various data to azure blobs from nodejs",
   "main": "index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "pretest": "tsc",
+    "test": "mocha"
   },
   "repository": {
     "type": "git",
@@ -18,5 +19,10 @@
   "homepage": "https://github.com/akrn/azureblob-upload-node#readme",
   "dependencies": {
     "azure-storage": "^0.7.0"
+  },
+  "devDependencies": {
+    "mocha": "^2.3.4",
+    "should": "^8.0.2",
+    "typescript": "^1.8.0-dev.20151224"
   }
 }
