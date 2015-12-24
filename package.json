@@ -1,0 +1,22 @@
+{
+  "name": "azureblob-upload-node",
+  "version": "1.0.0",
+  "description": "Upload various data to azure blobs from nodejs",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/akrn/azureblob-upload-node.git"
+  },
+  "author": "Andrey D. Korin",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/akrn/azureblob-upload-node/issues"
+  },
+  "homepage": "https://github.com/akrn/azureblob-upload-node#readme",
+  "dependencies": {
+    "azure-storage": "^0.7.0"
+  }
+}
