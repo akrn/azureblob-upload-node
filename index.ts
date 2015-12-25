@@ -2,6 +2,7 @@
 "use strict";
 
 import stream = require('stream');
+import fs = require('fs');
 const azure = require('azure-storage');
 const promisify = require('es6-promisify');
 
@@ -9,9 +10,9 @@ const FOLDER_SEPARATOR = ':';
 
 
 interface IBlobStorage {
-    save(folderName: string, name: string, object: any): Promise<boolean>;
+    save(folderName: string, name: string, object: any): Promise<any>;
 
-    read(folderName: string, name: string): stream.Readable;
+    read(folderName: string, name: string, writeStream: stream.Writable): Promise<any>;
     readAsBuffer(folderName: string, name: string): Promise<Buffer>;
     readAsObject(folderName: string, name: string): Promise<Object>;
 }
@@ -33,40 +34,81 @@ export default class AzureBlobStorage implements IBlobStorage {
         this.blobStorageContainerName = containerName;
     }
 
-    async save(folderName: string, name: string, object: any): Promise<any> {
+    async save(folderName: string, name: string, object: any, options?: any): Promise<any> {
+        let fullBlobName = [folderName, name].join(FOLDER_SEPARATOR),
+            blobOptions = {
+                metadata: {}
+            };
+
         let readableStream,
             readableStreamLength;
 
         if (object instanceof stream.Readable) {
-            throw new Error('not yet implemented');
+            this.log('Object type: stream');
+
+            if (!options || !options['length']) {
+                throw new Error('Stream length is required');
+            }
+
+            readableStream = object;
+            readableStreamLength = +options['length'];
+
+            blobOptions.metadata['type'] = 'binary';
+
         } else if (object instanceof Buffer) {
-            throw new Error('not yet implemented');
+            this.log('Object type: buffer');
+
+            readableStream = new stream.Readable();
+            readableStream._read = () => { };
+            readableStream.push(object);
+            readableStream.push(null);
+            readableStreamLength = (<Buffer>object).length;
+
+            blobOptions.metadata['type'] = 'binary';
+
         } else if (typeof object === 'string') {
-            throw new Error('not yet implemented');
+            this.log('Object type: local filename');
+            
+            // Will throw error in case file is not exists
+            let fileStat = fs.statSync(object);
+            readableStream = fs.createReadStream(object);
+            readableStreamLength = fileStat.size;
+
+            blobOptions.metadata['type'] = 'binary';
+
         } else if (object instanceof Object) {
+            this.log('Object type: json');
+
             let stringData = JSON.stringify(object, null, 0);
 
             readableStream = new stream.Readable();
-            readableStream._read = ()=>{};
+            readableStream._read = () => {};
             readableStream.push(stringData);
+            readableStream.push(null);
             readableStreamLength = stringData.length;
+
+            blobOptions.metadata['type'] = 'json';
+
         } else {
             throw new Error('Unsupported object type');
         }
 
-        let fullName = [folderName, name].join(FOLDER_SEPARATOR);
+        if (options && options['contentType']) {
+            this.log(`Setting contentType for the blob: ${options['contentType']}`);
 
-        let result = await promisify(this.blobService.createContainerIfNotExists.bind(this.blobService))(this.blobStorageContainerName, {
-            publicAccessLevel: 'blob'
-        });
+            blobOptions['contentType'] = options['contentType'];
+        }
 
-        this.log(`createContainerIfNotExists(${this.blobStorageContainerName}) result:`, result);
+        this.log(`Stream length: ${readableStreamLength}`);
 
-        await promisify(this.blobService.createBlockBlobFromStream.bind(this.blobService))(this.blobStorageContainerName, fullName, readableStream, readableStreamLength);
+        await promisify(this.blobService.createContainerIfNotExists.bind(this.blobService))(this.blobStorageContainerName, { publicAccessLevel: 'blob' });
+        await promisify(this.blobService.createBlockBlobFromStream.bind(this.blobService))(this.blobStorageContainerName, fullBlobName, readableStream, readableStreamLength, blobOptions);
     }
 
-    read(folderName: string, name: string): stream.Readable {
-        throw new Error('not yet implemented');
+    async read(folderName: string, name: string, writeStream: stream.Writable): Promise<any> {
+        let fullBlobName = [folderName, name].join(FOLDER_SEPARATOR);
+
+        await promisify(this.blobService.getBlobToStream.bind(this.blobService))(this.blobStorageContainerName, fullBlobName, writeStream);
     }
 
     async readAsBuffer(folderName: string, name: string): Promise<Buffer> {
@@ -74,6 +116,16 @@ export default class AzureBlobStorage implements IBlobStorage {
     }
 
     async readAsObject(folderName: string, name: string): Promise<Object> {
-        throw new Error('not yet implemented');
+        let fullBlobName = [folderName, name].join(FOLDER_SEPARATOR);
+
+        let result = await promisify(this.blobService.getBlobToText.bind(this.blobService))(this.blobStorageContainerName, fullBlobName),
+            text = result[0],
+            metadata = result[1].metadata;
+
+        if (metadata.type !== 'json') {
+            throw new Error('The requested blob can\'t be downloaded as JSON object');
+        }
+
+        return JSON.parse(text);
     }
 }
