@@ -12,7 +12,7 @@ const FOLDER_SEPARATOR = ':';
 interface IBlobStorage {
     save(folderName: string, name: string, object: any): Promise<any>;
 
-    read(folderName: string, name: string, writeStream: stream.Writable): Promise<any>;
+    read(folderName: string, name: string, writableStream: stream.Writable): Promise<any>;
     readAsBuffer(folderName: string, name: string): Promise<Buffer>;
     readAsObject(folderName: string, name: string): Promise<Object>;
 }
@@ -105,14 +105,19 @@ export default class AzureBlobStorage implements IBlobStorage {
         await promisify(this.blobService.createBlockBlobFromStream.bind(this.blobService))(this.blobStorageContainerName, fullBlobName, readableStream, readableStreamLength, blobOptions);
     }
 
-    async read(folderName: string, name: string, writeStream: stream.Writable): Promise<any> {
+    async read(folderName: string, name: string, writableStream: stream.Writable): Promise<any> {
         let fullBlobName = [folderName, name].join(FOLDER_SEPARATOR);
 
-        await promisify(this.blobService.getBlobToStream.bind(this.blobService))(this.blobStorageContainerName, fullBlobName, writeStream);
+        await promisify(this.blobService.getBlobToStream.bind(this.blobService))(this.blobStorageContainerName, fullBlobName, writableStream);
     }
 
     async readAsBuffer(folderName: string, name: string): Promise<Buffer> {
-        throw new Error('not yet implemented');
+        let fullBlobName = [folderName, name].join(FOLDER_SEPARATOR);
+
+        let passThroughStream = new stream.PassThrough();
+        await this.blobService.getBlobToStream(this.blobStorageContainerName, fullBlobName, passThroughStream, (e) => { if (e) throw e; });
+
+        return await this.streamToBuffer(passThroughStream);
     }
 
     async readAsObject(folderName: string, name: string): Promise<Object> {
@@ -127,5 +132,14 @@ export default class AzureBlobStorage implements IBlobStorage {
         }
 
         return JSON.parse(text);
+    }
+
+    private async streamToBuffer(readableStream: stream.Stream): Promise<Buffer> {
+        return new Promise<Buffer>((resolve, reject) => {
+            let buffers = [];
+            readableStream
+                .on('data', (data) => buffers.push(data))
+                .on('end', () => resolve(Buffer.concat(buffers)))
+        });
     }
 }

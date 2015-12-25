@@ -81,15 +81,19 @@ class AzureBlobStorage {
             yield promisify(this.blobService.createBlockBlobFromStream.bind(this.blobService))(this.blobStorageContainerName, fullBlobName, readableStream, readableStreamLength, blobOptions);
         });
     }
-    read(folderName, name, writeStream) {
+    read(folderName, name, writableStream) {
         return __awaiter(this, void 0, Promise, function* () {
             let fullBlobName = [folderName, name].join(FOLDER_SEPARATOR);
-            yield promisify(this.blobService.getBlobToStream.bind(this.blobService))(this.blobStorageContainerName, fullBlobName, writeStream);
+            yield promisify(this.blobService.getBlobToStream.bind(this.blobService))(this.blobStorageContainerName, fullBlobName, writableStream);
         });
     }
     readAsBuffer(folderName, name) {
         return __awaiter(this, void 0, Promise, function* () {
-            throw new Error('not yet implemented');
+            let fullBlobName = [folderName, name].join(FOLDER_SEPARATOR);
+            let passThroughStream = new stream.PassThrough();
+            yield this.blobService.getBlobToStream(this.blobStorageContainerName, fullBlobName, passThroughStream, (e) => { if (e)
+                throw e; });
+            return yield this.streamToBuffer(passThroughStream);
         });
     }
     readAsObject(folderName, name) {
@@ -100,6 +104,16 @@ class AzureBlobStorage {
                 throw new Error('The requested blob can\'t be downloaded as JSON object');
             }
             return JSON.parse(text);
+        });
+    }
+    streamToBuffer(readableStream) {
+        return __awaiter(this, void 0, Promise, function* () {
+            return new Promise((resolve, reject) => {
+                let buffers = [];
+                readableStream
+                    .on('data', (data) => buffers.push(data))
+                    .on('end', () => resolve(Buffer.concat(buffers)));
+            });
         });
     }
 }
