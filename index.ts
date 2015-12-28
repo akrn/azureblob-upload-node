@@ -3,6 +3,7 @@
 
 import stream = require('stream');
 import fs = require('fs');
+import zlib = require('zlib');
 const azure = require('azure-storage');
 const promisify = require('es6-promisify');
 
@@ -15,6 +16,12 @@ interface IBlobStorage {
     read(folderName: string, name: string, writableStream: stream.Writable): Promise<any>;
     readAsBuffer(folderName: string, name: string): Promise<Buffer>;
     readAsObject(folderName: string, name: string): Promise<Object>;
+}
+
+interface IAzureBlobSaveOptions {
+    streamLength?: number; // Required when saving a stream
+    contentType?: string;
+    compress?: boolean;
 }
 
 export default class AzureBlobStorage implements IBlobStorage {
@@ -34,7 +41,7 @@ export default class AzureBlobStorage implements IBlobStorage {
         this.blobStorageContainerName = containerName;
     }
 
-    async save(folderName: string, name: string, object: any, options?: any): Promise<any> {
+    async save(folderName: string, name: string, object: any, options?: IAzureBlobSaveOptions): Promise<any> {
         let fullBlobName = [folderName, name].join(FOLDER_SEPARATOR),
             blobOptions = {
                 metadata: {}
@@ -46,22 +53,20 @@ export default class AzureBlobStorage implements IBlobStorage {
         if (object instanceof stream.Readable) {
             this.log('Object type: stream');
 
-            if (!options || !options['length']) {
+            if (!options || !options.streamLength) {
                 throw new Error('Stream length is required');
             }
 
             readableStream = object;
-            readableStreamLength = +options['length'];
+            readableStreamLength = options.streamLength;
 
             blobOptions.metadata['type'] = 'binary';
 
         } else if (object instanceof Buffer) {
             this.log('Object type: buffer');
 
-            readableStream = new stream.Readable();
-            readableStream._read = () => { };
-            readableStream.push(object);
-            readableStream.push(null);
+            readableStream = new stream.PassThrough();
+            readableStream.end(object);
             readableStreamLength = (<Buffer>object).length;
 
             blobOptions.metadata['type'] = 'binary';
@@ -93,16 +98,31 @@ export default class AzureBlobStorage implements IBlobStorage {
             throw new Error('Unsupported object type');
         }
 
-        if (options && options['contentType']) {
-            this.log(`Setting contentType for the blob: ${options['contentType']}`);
+        if (options && options.contentType) {
+            this.log(`Setting contentType for the blob: ${options.contentType}`);
 
-            blobOptions['contentType'] = options['contentType'];
+            blobOptions['contentType'] = options.contentType;
+        }
+
+        if (options && options.compress) {
+            this.log('Applying compression');
+
+            let compressedStream = new stream.PassThrough();
+            readableStreamLength = await this.compressStream(readableStream, compressedStream);
+            readableStream = compressedStream;
+
+            blobOptions.metadata['compressed'] = true;
+            blobOptions['storeBlobContentMD5'] = false;
+            blobOptions['useTransactionalMD5'] = false;
         }
 
         this.log(`Stream length: ${readableStreamLength}`);
 
         await promisify(this.blobService.createContainerIfNotExists.bind(this.blobService))(this.blobStorageContainerName, { publicAccessLevel: 'blob' });
-        await promisify(this.blobService.createBlockBlobFromStream.bind(this.blobService))(this.blobStorageContainerName, fullBlobName, readableStream, readableStreamLength, blobOptions);
+        // await promisify(this.blobService.createBlockBlobFromStream.bind(this.blobService))(this.blobStorageContainerName, fullBlobName, readableStream, readableStreamLength, blobOptions);
+        this.blobService.createBlockBlobFromStream(this.blobStorageContainerName, fullBlobName, readableStream, readableStreamLength, blobOptions, (err, resp1, resp2) => {
+            console.log(err, resp1, resp2);
+        });
     }
 
     async read(folderName: string, name: string, writableStream: stream.Writable): Promise<any> {
@@ -140,6 +160,28 @@ export default class AzureBlobStorage implements IBlobStorage {
             readableStream
                 .on('data', (data) => buffers.push(data))
                 .on('end', () => resolve(Buffer.concat(buffers)))
+        });
+    }
+
+    private async compressStream(readableStream: stream.Stream, writableStream: stream.PassThrough): Promise<number> {
+        return new Promise<number>((resolve, reject) => {
+            let length = 0,
+                passThroughStream = new stream.PassThrough();
+
+            passThroughStream
+                .on('data', (data) => {
+                    console.log(length);
+                    length += data.length;
+                })
+                .on('end', () => {
+                    console.log('resolved');
+                    resolve(length);
+                });
+
+            readableStream
+                .pipe(zlib.createGzip())
+                .pipe(passThroughStream)
+                .pipe(writableStream);
         });
     }
 }

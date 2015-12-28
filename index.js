@@ -15,6 +15,7 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, Promi
 };
 var stream = require('stream');
 var fs = require('fs');
+var zlib = require('zlib');
 const azure = require('azure-storage');
 const promisify = require('es6-promisify');
 const FOLDER_SEPARATOR = ':';
@@ -35,19 +36,17 @@ class AzureBlobStorage {
             let readableStream, readableStreamLength;
             if (object instanceof stream.Readable) {
                 this.log('Object type: stream');
-                if (!options || !options['length']) {
+                if (!options || !options.streamLength) {
                     throw new Error('Stream length is required');
                 }
                 readableStream = object;
-                readableStreamLength = +options['length'];
+                readableStreamLength = options.streamLength;
                 blobOptions.metadata['type'] = 'binary';
             }
             else if (object instanceof Buffer) {
                 this.log('Object type: buffer');
-                readableStream = new stream.Readable();
-                readableStream._read = () => { };
-                readableStream.push(object);
-                readableStream.push(null);
+                readableStream = new stream.PassThrough();
+                readableStream.end(object);
                 readableStreamLength = object.length;
                 blobOptions.metadata['type'] = 'binary';
             }
@@ -72,13 +71,25 @@ class AzureBlobStorage {
             else {
                 throw new Error('Unsupported object type');
             }
-            if (options && options['contentType']) {
-                this.log(`Setting contentType for the blob: ${options['contentType']}`);
-                blobOptions['contentType'] = options['contentType'];
+            if (options && options.contentType) {
+                this.log(`Setting contentType for the blob: ${options.contentType}`);
+                blobOptions['contentType'] = options.contentType;
+            }
+            if (options && options.compress) {
+                this.log('Applying compression');
+                let compressedStream = new stream.PassThrough();
+                readableStreamLength = yield this.compressStream(readableStream, compressedStream);
+                readableStream = compressedStream;
+                blobOptions.metadata['compressed'] = true;
+                blobOptions['storeBlobContentMD5'] = false;
+                blobOptions['useTransactionalMD5'] = false;
             }
             this.log(`Stream length: ${readableStreamLength}`);
             yield promisify(this.blobService.createContainerIfNotExists.bind(this.blobService))(this.blobStorageContainerName, { publicAccessLevel: 'blob' });
-            yield promisify(this.blobService.createBlockBlobFromStream.bind(this.blobService))(this.blobStorageContainerName, fullBlobName, readableStream, readableStreamLength, blobOptions);
+            // await promisify(this.blobService.createBlockBlobFromStream.bind(this.blobService))(this.blobStorageContainerName, fullBlobName, readableStream, readableStreamLength, blobOptions);
+            this.blobService.createBlockBlobFromStream(this.blobStorageContainerName, fullBlobName, readableStream, readableStreamLength, blobOptions, (err, resp1, resp2) => {
+                console.log(err, resp1, resp2);
+            });
         });
     }
     read(folderName, name, writableStream) {
@@ -113,6 +124,26 @@ class AzureBlobStorage {
                 readableStream
                     .on('data', (data) => buffers.push(data))
                     .on('end', () => resolve(Buffer.concat(buffers)));
+            });
+        });
+    }
+    compressStream(readableStream, writableStream) {
+        return __awaiter(this, void 0, Promise, function* () {
+            return new Promise((resolve, reject) => {
+                let length = 0, passThroughStream = new stream.PassThrough();
+                passThroughStream
+                    .on('data', (data) => {
+                    console.log(length);
+                    length += data.length;
+                })
+                    .on('end', () => {
+                    console.log('resolved');
+                    resolve(length);
+                });
+                readableStream
+                    .pipe(zlib.createGzip())
+                    .pipe(passThroughStream)
+                    .pipe(writableStream);
             });
         });
     }
