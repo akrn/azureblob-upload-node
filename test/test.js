@@ -1,13 +1,16 @@
 /// <reference path="../typings/mocha/mocha.d.ts" />
 /// <reference path="../typings/node/node.d.ts" />
+/// <reference path="../typings/request/request.d.ts" />
 "use strict";
 var fs = require('fs');
 var path = require('path');
 var assert = require('assert');
+var request = require('request');
 const bufferEqual = require('buffer-equal');
 var index_1 = require('../index');
+const TEST_TIMEOUT = 20000;
 describe('Uploading various types of data to Azure', function () {
-    this.timeout(10000);
+    this.timeout(TEST_TIMEOUT);
     it('should initialize AzureBlobStorage object properly', (done) => {
         let storage = new index_1.default(process.env.AZURE_STORAGE_CONNECTION_STRING, 'test-container', true);
         done();
@@ -20,7 +23,7 @@ describe('Uploading various types of data to Azure', function () {
                 assert.deepEqual(objectToSend, rcvdObject, 'Sent and received objects are not deep-equal');
                 done();
             }).catch(done);
-        }, done);
+        }).catch(done);
     });
     it('should upload Buffer to the storage, read it back and compare', (done) => {
         let buffer = fs.readFileSync(path.resolve(__dirname, 'pic.jpg'));
@@ -30,7 +33,7 @@ describe('Uploading various types of data to Azure', function () {
                 assert.ok(bufferEqual(buffer, rcvdBuffer), 'Sent and received buffers are not equal');
                 done();
             }).catch(done);
-        }, done);
+        }).catch(done);
     });
     it('should upload file from local filesystem to the storage, read it back and compare', (done) => {
         let fileName = path.resolve(__dirname, 'pic.jpg'), buffer = fs.readFileSync(fileName);
@@ -40,7 +43,7 @@ describe('Uploading various types of data to Azure', function () {
                 assert.ok(bufferEqual(buffer, rcvdBuffer), 'Sent and received buffers are not equal');
                 done();
             }).catch(done);
-        }, done);
+        }).catch(done);
     });
     it('should upload file from local filesystem to the storage, read it back and compare (with compression)', (done) => {
         let fileName = path.resolve(__dirname, 'pic.jpg'), buffer = fs.readFileSync(fileName);
@@ -50,16 +53,33 @@ describe('Uploading various types of data to Azure', function () {
                 assert.ok(bufferEqual(buffer, rcvdBuffer), 'Sent and received buffers are not equal');
                 done();
             }).catch(done);
-        }, done);
+        }).catch(done);
     });
 });
 describe('Listing objects', function () {
-    this.timeout(10000);
+    this.timeout(TEST_TIMEOUT);
     it('should return an array of IBlobObjects', (done) => {
         let storage = new index_1.default(process.env.AZURE_STORAGE_CONNECTION_STRING, 'test-container', true);
         storage.list('test-folder-1').then((list) => {
             assert.ok(Array.isArray(list), 'List should be an array');
             done();
+        }).catch(done);
+    });
+});
+describe('Upload object and retrieve URL', function () {
+    this.timeout(TEST_TIMEOUT);
+    it('should upload image with specified content type and then retrieve it via HTTP', (done) => {
+        let fileName = path.resolve(__dirname, 'pic.jpg'), buffer = fs.readFileSync(fileName), contentType = 'image/jpeg';
+        let storage = new index_1.default(process.env.AZURE_STORAGE_CONNECTION_STRING, 'test-container', true);
+        storage.save('test-folder-1:pic.jpg', fileName, { contentType: contentType, getURL: true }).then((url) => {
+            assert.ok(typeof url === 'string', 'Blob URL should be a string');
+            console.log('Got URL:', url);
+            request.get(url, { encoding: null }, (err, res, body) => {
+                assert.equal(res.statusCode, 200, 'Status code was not 200');
+                assert.equal(res.headers['content-type'], contentType, 'Content type is wrong for retrieved blob');
+                assert.ok(bufferEqual(body, buffer), 'Sent object is not equal with object retrieved by URL');
+                done();
+            });
         }).catch(done);
     });
 });

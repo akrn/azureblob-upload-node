@@ -86,11 +86,17 @@ class AzureBlobStorage {
             this.log(`Stream length: ${readableStreamLength}`);
             yield promisify(this.blobService.createContainerIfNotExists.bind(this.blobService))(this.blobStorageContainerName, { publicAccessLevel: 'blob' });
             yield promisify(this.blobService.createBlockBlobFromStream.bind(this.blobService))(this.blobStorageContainerName, fullBlobName, readableStream, readableStreamLength, blobOptions);
+            if (options && options.getURL) {
+                this.log('Retrieving URL');
+                let url = yield this.getURL(fullBlobName);
+                return url;
+            }
         });
     }
     read(fullBlobName, writableStream) {
         return __awaiter(this, void 0, Promise, function* () {
-            yield promisify(this.blobService.getBlobToStream.bind(this.blobService))(this.blobStorageContainerName, fullBlobName, writableStream);
+            let blobStream = yield this.readBlob(fullBlobName);
+            blobStream.pipe(writableStream);
         });
     }
     readAsBuffer(fullBlobName) {
@@ -125,6 +131,18 @@ class AzureBlobStorage {
             } while (continuationToken);
             return list;
         });
+    }
+    getURL(fullBlobName) {
+        let expiration = new Date();
+        expiration.setUTCFullYear(2050);
+        let sharedAccessPermissions = {
+            AccessPolicy: {
+                Permissions: azure.BlobUtilities.SharedAccessPermissions.READ,
+                Expiry: expiration
+            }
+        };
+        let token = this.blobService.generateSharedAccessSignature(this.blobStorageContainerName, fullBlobName, sharedAccessPermissions);
+        return this.blobService.getUrl(this.blobStorageContainerName, fullBlobName, token);
     }
     // Private methods
     streamToBuffer(readableStream) {

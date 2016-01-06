@@ -28,6 +28,7 @@ interface IAzureBlobSaveOptions {
     streamLength?: number; // Required when saving a stream
     contentType?: string;
     compress?: boolean;
+    getURL?: boolean;
 }
 
 export default class AzureBlobStorage implements IBlobStorage {
@@ -126,10 +127,19 @@ export default class AzureBlobStorage implements IBlobStorage {
 
         await promisify(this.blobService.createContainerIfNotExists.bind(this.blobService))(this.blobStorageContainerName, { publicAccessLevel: 'blob' });
         await promisify(this.blobService.createBlockBlobFromStream.bind(this.blobService))(this.blobStorageContainerName, fullBlobName, readableStream, readableStreamLength, blobOptions);
+
+        if (options && options.getURL) {
+            this.log('Retrieving URL');
+
+            let url = await this.getURL(fullBlobName);
+
+            return url;
+        }
     }
 
     async read(fullBlobName: string, writableStream: stream.Writable): Promise<any> {
-        await promisify(this.blobService.getBlobToStream.bind(this.blobService))(this.blobStorageContainerName, fullBlobName, writableStream);
+        let blobStream = await this.readBlob(fullBlobName);
+        blobStream.pipe(writableStream);
     }
 
     async readAsBuffer(fullBlobName: string): Promise<Buffer> {
@@ -175,6 +185,21 @@ export default class AzureBlobStorage implements IBlobStorage {
         } while (continuationToken);
 
         return list;
+    }
+
+    getURL(fullBlobName: string): string {
+        let expiration = new Date();
+        expiration.setUTCFullYear(2050);
+
+        let sharedAccessPermissions = {
+            AccessPolicy: {
+                Permissions: azure.BlobUtilities.SharedAccessPermissions.READ,
+                Expiry: expiration
+            }
+        };
+
+        let token = this.blobService.generateSharedAccessSignature(this.blobStorageContainerName, fullBlobName, sharedAccessPermissions);
+        return this.blobService.getUrl(this.blobStorageContainerName, fullBlobName, token);
     }
 
 
