@@ -1,11 +1,10 @@
 /// <reference path="../typings/mocha/mocha.d.ts" />
-/// <reference path="../typings/should/should.d.ts" />
 /// <reference path="../typings/node/node.d.ts" />
 
 import fs = require('fs');
 import path = require('path');
+import assert = require('assert');
 const bufferEqual = require('buffer-equal');
-require('should');
 
 import AzureBlobStorage from '../index';
 

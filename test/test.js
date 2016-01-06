@@ -7,7 +7,7 @@ var assert = require('assert');
 const bufferEqual = require('buffer-equal');
 var index_1 = require('../index');
 describe('Uploading various types of data to Azure', function () {
-    this.timeout(20000);
+    this.timeout(10000);
     it('should initialize AzureBlobStorage object properly', (done) => {
         let storage = new index_1.default(process.env.AZURE_STORAGE_CONNECTION_STRING, 'test-container', true);
         done();
