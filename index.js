@@ -107,7 +107,23 @@ class AzureBlobStorage {
                 throw new Error('The requested blob can\'t be downloaded as JSON object');
             }
             let buffer = yield this.streamToBuffer(blobStream);
-            return JSON.parse(buffer.toString('utf-8'));
+            return JSON.parse(buffer.toString('utf8'));
+        });
+    }
+    list(folderName) {
+        return __awaiter(this, void 0, Promise, function* () {
+            let listBlobsSegmentedAsync = promisify(this.blobService.listBlobsSegmented.bind(this.blobService)), result, continuationToken = null, list;
+            do {
+                result = yield listBlobsSegmentedAsync(this.blobStorageContainerName, continuationToken);
+                list = result[0].entries.map((entry) => {
+                    return {
+                        fullBlobName: entry.name,
+                        properties: entry.properties
+                    };
+                });
+                continuationToken = result[0].continuationToken;
+            } while (continuationToken);
+            return list;
         });
     }
     // Private methods

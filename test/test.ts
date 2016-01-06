@@ -24,9 +24,9 @@ describe('Uploading various types of data to Azure', function() {
         let storage = new AzureBlobStorage(process.env.AZURE_STORAGE_CONNECTION_STRING, 'test-container', true);
         storage.save('test-folder-1:object.json.gz', objectToSend).then(() => {
             storage.readAsObject('test-folder-1:object.json.gz').then((rcvdObject) => {
-                objectToSend.should.eql(rcvdObject);
+                assert.deepEqual(objectToSend, rcvdObject, 'Sent and received objects are not deep-equal');
                 done();
-            }, done);
+            }).catch(done);
         }, done);
     });
 
@@ -36,9 +36,9 @@ describe('Uploading various types of data to Azure', function() {
         let storage = new AzureBlobStorage(process.env.AZURE_STORAGE_CONNECTION_STRING, 'test-container', true);
         storage.save('test-folder-1:buffer.jpg', buffer).then(() => {
             storage.readAsBuffer('test-folder-1:buffer.jpg').then((rcvdBuffer) => {
-                bufferEqual(buffer, rcvdBuffer).should.ok();
+                assert.ok(bufferEqual(buffer, rcvdBuffer), 'Sent and received buffers are not equal');
                 done();
-            }, done);
+            }).catch(done);
         }, done);
     });
 
@@ -49,9 +49,9 @@ describe('Uploading various types of data to Azure', function() {
         let storage = new AzureBlobStorage(process.env.AZURE_STORAGE_CONNECTION_STRING, 'test-container', true);
         storage.save('test-folder-1:pic.jpg', fileName).then(() => {
             storage.readAsBuffer('test-folder-1:pic.jpg').then((rcvdBuffer) => {
-                bufferEqual(buffer, rcvdBuffer).should.ok();
+                assert.ok(bufferEqual(buffer, rcvdBuffer), 'Sent and received buffers are not equal');
                 done();
-            }, done);
+            }).catch(done);
         }, done);
     });
 
@@ -62,10 +62,23 @@ describe('Uploading various types of data to Azure', function() {
         let storage = new AzureBlobStorage(process.env.AZURE_STORAGE_CONNECTION_STRING, 'test-container', true);
         storage.save('test-folder-1:pic.jpg', fileName, { compress: true }).then(() => {
             storage.readAsBuffer('test-folder-1:pic.jpg').then((rcvdBuffer) => {
-                bufferEqual(buffer, rcvdBuffer).should.ok();
+                assert.ok(bufferEqual(buffer, rcvdBuffer), 'Sent and received buffers are not equal');
                 done();
-            }, done);
+            }).catch(done);
         }, done);
+    });
+
+});
+
+describe('Listing objects', function() {
+    this.timeout(10000);
+
+    it('should return an array of IBlobObjects', (done) => {
+        let storage = new AzureBlobStorage(process.env.AZURE_STORAGE_CONNECTION_STRING, 'test-container', true);
+        storage.list('test-folder-1').then((list) => {
+            assert.ok(Array.isArray(list), 'List should be an array');
+            done();
+        }).catch(done);
     });
 
 });

@@ -15,6 +15,13 @@ interface IBlobStorage {
     read(fullBlobName: string, writableStream: stream.Writable): Promise<any>;
     readAsBuffer(fullBlobName: string): Promise<Buffer>;
     readAsObject(fullBlobName: string): Promise<Object>;
+
+    list(folderName: string): Promise<IBlobObject[]>;
+}
+
+interface IBlobObject {
+    fullBlobName: string;
+    properties: any; // Azure-specific properties
 }
 
 interface IAzureBlobSaveOptions {
@@ -144,6 +151,30 @@ export default class AzureBlobStorage implements IBlobStorage {
         let buffer = await this.streamToBuffer(blobStream);
 
         return JSON.parse(buffer.toString('utf8'));
+    }
+
+    async list(folderName: string): Promise<IBlobObject[]> {
+        let listBlobsSegmentedAsync = promisify(this.blobService.listBlobsSegmented.bind(this.blobService)),
+            result,
+            continuationToken = null,
+            list: IBlobObject[];
+
+        do {
+            result = await listBlobsSegmentedAsync(this.blobStorageContainerName, continuationToken);
+
+            list = result[0].entries.map((entry) => {
+                return {
+                    fullBlobName: entry.name,
+                    properties: entry.properties
+                };
+            });
+
+            continuationToken = result[0].continuationToken;
+
+            // Check if we have more items to retrieve
+        } while (continuationToken);
+
+        return list;
     }
 
 
