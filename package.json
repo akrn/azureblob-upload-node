@@ -25,6 +25,7 @@
     "buffer-equal": "0.0.1",
     "mocha": "^2.3.4",
     "should": "^8.0.2",
+    "stream-buffers": "^3.0.0",
     "typescript": "^1.8.0-dev.20151224"
   }
 }

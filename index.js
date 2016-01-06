@@ -18,19 +18,16 @@ var fs = require('fs');
 var zlib = require('zlib');
 const azure = require('azure-storage');
 const promisify = require('es6-promisify');
-const FOLDER_SEPARATOR = ':';
+const streamBuffers = require('stream-buffers');
 class AzureBlobStorage {
-    /**
-     * Optional folderName parameter can be set in order to use shortcut save/read methods
-     */
     constructor(connectionString, containerName, verbose) {
         this.log = verbose ? console.log.bind(console) : () => void 0;
         this.blobService = azure.createBlobService(connectionString);
         this.blobStorageContainerName = containerName;
     }
-    save(folderName, name, object, options) {
+    save(fullBlobName, object, options) {
         return __awaiter(this, void 0, Promise, function* () {
-            let fullBlobName = [folderName, name].join(FOLDER_SEPARATOR), blobOptions = {
+            let blobOptions = {
                 metadata: {}
             };
             let readableStream, readableStreamLength;
@@ -45,8 +42,11 @@ class AzureBlobStorage {
             }
             else if (object instanceof Buffer) {
                 this.log('Object type: buffer');
-                readableStream = new stream.PassThrough();
-                readableStream.end(object);
+                readableStream = new stream.Readable();
+                readableStream._read = () => {
+                    readableStream.push(object);
+                    readableStream.push(null);
+                };
                 readableStreamLength = object.length;
                 blobOptions.metadata['type'] = 'binary';
             }
@@ -81,35 +81,29 @@ class AzureBlobStorage {
                 readableStreamLength = yield this.compressStream(readableStream, compressedStream);
                 readableStream = compressedStream;
                 blobOptions.metadata['compressed'] = true;
-                blobOptions['storeBlobContentMD5'] = false;
-                blobOptions['useTransactionalMD5'] = false;
             }
             this.log(`Stream length: ${readableStreamLength}`);
             yield promisify(this.blobService.createContainerIfNotExists.bind(this.blobService))(this.blobStorageContainerName, { publicAccessLevel: 'blob' });
-            // await promisify(this.blobService.createBlockBlobFromStream.bind(this.blobService))(this.blobStorageContainerName, fullBlobName, readableStream, readableStreamLength, blobOptions);
-            this.blobService.createBlockBlobFromStream(this.blobStorageContainerName, fullBlobName, readableStream, readableStreamLength, blobOptions, (err, resp1, resp2) => {
-                console.log(err, resp1, resp2);
-            });
+            yield promisify(this.blobService.createBlockBlobFromStream.bind(this.blobService))(this.blobStorageContainerName, fullBlobName, readableStream, readableStreamLength, blobOptions);
+            // this.blobService.createBlockBlobFromStream(this.blobStorageContainerName, fullBlobName, readableStream, readableStreamLength, blobOptions, (err, resp1, resp2) => {
+            // console.log(err, resp1, resp2);
+            // });
         });
     }
-    read(folderName, name, writableStream) {
+    read(fullBlobName, writableStream) {
         return __awaiter(this, void 0, Promise, function* () {
-            let fullBlobName = [folderName, name].join(FOLDER_SEPARATOR);
             yield promisify(this.blobService.getBlobToStream.bind(this.blobService))(this.blobStorageContainerName, fullBlobName, writableStream);
         });
     }
-    readAsBuffer(folderName, name) {
+    readAsBuffer(fullBlobName) {
         return __awaiter(this, void 0, Promise, function* () {
-            let fullBlobName = [folderName, name].join(FOLDER_SEPARATOR);
             let passThroughStream = new stream.PassThrough();
-            yield this.blobService.getBlobToStream(this.blobStorageContainerName, fullBlobName, passThroughStream, (e) => { if (e)
-                throw e; });
-            return yield this.streamToBuffer(passThroughStream);
+            let blobStream = yield this.readBlob(fullBlobName);
+            return yield this.streamToBuffer(blobStream);
         });
     }
-    readAsObject(folderName, name) {
+    readAsObject(fullBlobName) {
         return __awaiter(this, void 0, Promise, function* () {
-            let fullBlobName = [folderName, name].join(FOLDER_SEPARATOR);
             let result = yield promisify(this.blobService.getBlobToText.bind(this.blobService))(this.blobStorageContainerName, fullBlobName), text = result[0], metadata = result[1].metadata;
             if (metadata.type !== 'json') {
                 throw new Error('The requested blob can\'t be downloaded as JSON object');
@@ -117,33 +111,77 @@ class AzureBlobStorage {
             return JSON.parse(text);
         });
     }
+    // Private methods
     streamToBuffer(readableStream) {
         return __awaiter(this, void 0, Promise, function* () {
             return new Promise((resolve, reject) => {
                 let buffers = [];
                 readableStream
-                    .on('data', (data) => buffers.push(data))
-                    .on('end', () => resolve(Buffer.concat(buffers)));
+                    .on('readable', () => {
+                    let chunk;
+                    while ((chunk = readableStream.read()) !== null) {
+                        buffers.push(chunk);
+                    }
+                })
+                    .on('end', () => {
+                    resolve(Buffer.concat(buffers));
+                });
             });
         });
     }
     compressStream(readableStream, writableStream) {
         return __awaiter(this, void 0, Promise, function* () {
             return new Promise((resolve, reject) => {
-                let length = 0, passThroughStream = new stream.PassThrough();
-                passThroughStream
-                    .on('data', (data) => {
-                    console.log(length);
-                    length += data.length;
+                let length = 0, counterStream = new stream.PassThrough(), zlibStream = zlib.createGzip();
+                counterStream
+                    .on('readable', () => {
+                    let chunk;
+                    while ((chunk = counterStream.read()) !== null) {
+                        length += chunk.length;
+                        writableStream.write(chunk);
+                    }
                 })
                     .on('end', () => {
-                    console.log('resolved');
+                    writableStream.end();
                     resolve(length);
                 });
+                zlibStream.pipe(counterStream);
                 readableStream
-                    .pipe(zlib.createGzip())
-                    .pipe(passThroughStream)
-                    .pipe(writableStream);
+                    .on('readable', () => {
+                    let chunk;
+                    while ((chunk = readableStream.read()) !== null) {
+                        zlibStream.write(chunk);
+                    }
+                })
+                    .on('end', () => {
+                    zlibStream.end();
+                });
+            });
+        });
+    }
+    readBlob(fullBlobName) {
+        return __awaiter(this, void 0, Promise, function* () {
+            return new Promise((resolve, reject) => {
+                let writable = new stream.Writable(), passThrough = new stream.PassThrough();
+                writable._write = function (chunk, _, next) {
+                    passThrough.push(chunk);
+                    next();
+                };
+                writable.on('finish', () => {
+                    passThrough.end();
+                });
+                this.blobService.getBlobToStream(this.blobStorageContainerName, fullBlobName, writable, (err, result, _) => {
+                    if (err) {
+                        return reject(err);
+                    }
+                    if (result.metadata && result.metadata.compressed) {
+                        this.log('Decompressing compressed blob...');
+                        let decomressedPassThroughStream = new stream.PassThrough();
+                        passThrough.pipe(zlib.createGunzip()).pipe(decomressedPassThroughStream);
+                        return resolve(decomressedPassThroughStream);
+                    }
+                    return resolve(passThrough);
+                });
             });
         });
     }
