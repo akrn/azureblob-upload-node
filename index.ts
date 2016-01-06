@@ -82,13 +82,16 @@ export default class AzureBlobStorage implements IBlobStorage {
         } else if (object instanceof Object) {
             this.log('Object type: json');
 
-            let stringData = JSON.stringify(object, null, 0);
+            let stringData = JSON.stringify(object, null, 0),
+                buffer = new Buffer(stringData, 'utf8');
 
             readableStream = new stream.Readable();
-            readableStream._read = () => {};
-            readableStream.push(stringData);
-            readableStream.push(null);
-            readableStreamLength = stringData.length;
+            readableStream._read = () => {
+                readableStream.push(buffer);
+                readableStream.push(null);
+            };
+
+            readableStreamLength = buffer.length;
 
             blobOptions.metadata['type'] = 'json';
 
@@ -116,9 +119,6 @@ export default class AzureBlobStorage implements IBlobStorage {
 
         await promisify(this.blobService.createContainerIfNotExists.bind(this.blobService))(this.blobStorageContainerName, { publicAccessLevel: 'blob' });
         await promisify(this.blobService.createBlockBlobFromStream.bind(this.blobService))(this.blobStorageContainerName, fullBlobName, readableStream, readableStreamLength, blobOptions);
-        // this.blobService.createBlockBlobFromStream(this.blobStorageContainerName, fullBlobName, readableStream, readableStreamLength, blobOptions, (err, resp1, resp2) => {
-            // console.log(err, resp1, resp2);
-        // });
     }
 
     async read(fullBlobName: string, writableStream: stream.Writable): Promise<any> {
@@ -134,15 +134,16 @@ export default class AzureBlobStorage implements IBlobStorage {
     }
 
     async readAsObject(fullBlobName: string): Promise<Object> {
-        let result = await promisify(this.blobService.getBlobToText.bind(this.blobService))(this.blobStorageContainerName, fullBlobName),
-            text = result[0],
-            metadata = result[1].metadata;
+        let metadata = Object.create(null),
+            blobStream = await this.readBlob(fullBlobName, metadata);
 
         if (metadata.type !== 'json') {
             throw new Error('The requested blob can\'t be downloaded as JSON object');
         }
 
-        return JSON.parse(text);
+        let buffer = await this.streamToBuffer(blobStream);
+
+        return JSON.parse(buffer.toString('utf8'));
     }
 
 
@@ -200,12 +201,14 @@ export default class AzureBlobStorage implements IBlobStorage {
         });
     }
 
-    private async readBlob(fullBlobName: string): Promise<stream.Stream> {
+    private async readBlob(fullBlobName: string, metadata?: any): Promise<stream.Stream> {
         return new Promise<stream.Stream>((resolve, reject) => {
             let writable = new stream.Writable(),
                 passThrough = new stream.PassThrough();
 
+            let total = 0;
             writable._write = function(chunk, _, next) {
+                total += chunk.length;
                 passThrough.push(chunk);
                 next();
             };
@@ -216,6 +219,11 @@ export default class AzureBlobStorage implements IBlobStorage {
             this.blobService.getBlobToStream(this.blobStorageContainerName, fullBlobName, writable, (err, result, _) => {
                 if (err) {
                     return reject(err);
+                }
+
+                if (metadata && result.metadata) {
+                    // In case we have metadata and supplied an object to read it there
+                    Object.assign(metadata, result.metadata)
                 }
 
                 if (result.metadata && result.metadata.compressed) {

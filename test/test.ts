@@ -24,7 +24,7 @@ describe('Uploading various types of data to Azure', function() {
         let storage = new AzureBlobStorage(process.env.AZURE_STORAGE_CONNECTION_STRING, 'test-container', true);
         storage.save('test-folder-1:object.json.gz', objectToSend).then(() => {
             storage.readAsObject('test-folder-1:object.json.gz').then((rcvdObject) => {
-                // objectToSend.should.eql(rcvdObject);
+                objectToSend.should.eql(rcvdObject);
                 done();
             }, done);
         }, done);
