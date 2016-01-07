@@ -116,11 +116,11 @@ class AzureBlobStorage {
             return JSON.parse(buffer.toString('utf8'));
         });
     }
-    list(folderName) {
+    list(prefix) {
         return __awaiter(this, void 0, Promise, function* () {
-            let listBlobsSegmentedAsync = promisify(this.blobService.listBlobsSegmented.bind(this.blobService)), result, continuationToken = null, list;
+            let listBlobsSegmentedWithPrefixAsync = promisify(this.blobService.listBlobsSegmentedWithPrefix.bind(this.blobService)), result, continuationToken = null, list;
             do {
-                result = yield listBlobsSegmentedAsync(this.blobStorageContainerName, continuationToken);
+                result = yield listBlobsSegmentedWithPrefixAsync(this.blobStorageContainerName, prefix, continuationToken);
                 list = result[0].entries.map((entry) => {
                     return {
                         fullBlobName: entry.name,

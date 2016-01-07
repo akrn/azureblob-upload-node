@@ -58,10 +58,11 @@ describe('Uploading various types of data to Azure', function () {
 });
 describe('Listing objects', function () {
     this.timeout(TEST_TIMEOUT);
-    it('should return an array of IBlobObjects', (done) => {
+    it('should return an array of IBlobObjects with specified prefix', (done) => {
         let storage = new index_1.default(process.env.AZURE_STORAGE_CONNECTION_STRING, 'test-container', true);
-        storage.list('test-folder-1').then((list) => {
+        storage.list('test-folder-1:').then((list) => {
             assert.ok(Array.isArray(list), 'List should be an array');
+            list.forEach((item) => assert.ok(item.fullBlobName.startsWith('test-folder-1'), 'Results contain item(s) from other folders'));
             done();
         }).catch(done);
     });

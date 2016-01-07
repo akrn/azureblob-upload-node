@@ -16,7 +16,7 @@ interface IBlobStorage {
     readAsBuffer(fullBlobName: string): Promise<Buffer>;
     readAsObject(fullBlobName: string): Promise<Object>;
 
-    list(folderName: string): Promise<IBlobObject[]>;
+    list(prefix: string): Promise<IBlobObject[]>;
 }
 
 interface IBlobObject {
@@ -163,14 +163,14 @@ export default class AzureBlobStorage implements IBlobStorage {
         return JSON.parse(buffer.toString('utf8'));
     }
 
-    async list(folderName: string): Promise<IBlobObject[]> {
-        let listBlobsSegmentedAsync = promisify(this.blobService.listBlobsSegmented.bind(this.blobService)),
+    async list(prefix: string): Promise<IBlobObject[]> {
+        let listBlobsSegmentedWithPrefixAsync = promisify(this.blobService.listBlobsSegmentedWithPrefix.bind(this.blobService)),
             result,
             continuationToken = null,
             list: IBlobObject[];
 
         do {
-            result = await listBlobsSegmentedAsync(this.blobStorageContainerName, continuationToken);
+            result = await listBlobsSegmentedWithPrefixAsync(this.blobStorageContainerName, prefix, continuationToken);
 
             list = result[0].entries.map((entry) => {
                 return {
