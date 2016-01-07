@@ -31,7 +31,7 @@ interface IAzureBlobSaveOptions {
     getURL?: boolean;
 }
 
-export default class AzureBlobStorage implements IBlobStorage {
+class AzureBlobStorage implements IBlobStorage {
     blobService: any;
     blobStorageContainerName: string;
 
@@ -297,3 +297,5 @@ export default class AzureBlobStorage implements IBlobStorage {
         });
     }
 }
+
+export = AzureBlobStorage;

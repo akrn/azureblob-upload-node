@@ -225,5 +225,4 @@ class AzureBlobStorage {
         });
     }
 }
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.default = AzureBlobStorage;
+module.exports = AzureBlobStorage;

@@ -8,7 +8,7 @@ import assert = require('assert');
 import request = require('request');
 const bufferEqual = require('buffer-equal');
 
-import AzureBlobStorage from '../index';
+import AzureBlobStorage = require('../index');
 
 const TEST_TIMEOUT = 20000;
 
