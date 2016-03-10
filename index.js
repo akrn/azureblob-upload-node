@@ -24,6 +24,13 @@ class AzureBlobStorage {
         this.log = verbose ? console.log.bind(console) : () => void 0;
         this.blobService = azure.createBlobService(connectionString);
         this.blobStorageContainerName = containerName;
+        this.retriesCount = 1;
+    }
+    /**
+     * Set a number of retries when uploading a blob
+     */
+    setRetriesCount(retriesCount) {
+        this.retriesCount = retriesCount;
     }
     save(fullBlobName, object, options) {
         return __awaiter(this, void 0, Promise, function* () {
@@ -84,8 +91,32 @@ class AzureBlobStorage {
                 blobOptions.metadata['compressed'] = true;
             }
             this.log(`Stream length: ${readableStreamLength}`);
-            yield promisify(this.blobService.createContainerIfNotExists.bind(this.blobService))(this.blobStorageContainerName, { publicAccessLevel: 'blob' });
-            yield promisify(this.blobService.createBlockBlobFromStream.bind(this.blobService))(this.blobStorageContainerName, fullBlobName, readableStream, readableStreamLength, blobOptions);
+            let retry = false, azureError = null;
+            do {
+                try {
+                    yield promisify(this.blobService.createContainerIfNotExists.bind(this.blobService))(this.blobStorageContainerName, { publicAccessLevel: 'blob' });
+                    yield promisify(this.blobService.createBlockBlobFromStream.bind(this.blobService))(this.blobStorageContainerName, fullBlobName, readableStream, readableStreamLength, blobOptions);
+                    // No error, unset azure error and exit the loop
+                    retry = false;
+                    azureError = null;
+                }
+                catch (err) {
+                    // Decrease retries count and decide whether to retry operation
+                    this.retriesCount--;
+                    retry = (this.retriesCount > 0);
+                    azureError = err;
+                    this.log(`Error while saving blob: ${err}. Retries left: ${this.retriesCount}`);
+                }
+                yield new Promise((resolve, reject) => {
+                    setTimeout(() => {
+                        resolve();
+                    }, 5000);
+                });
+            } while (retry);
+            if (azureError) {
+                // Failed to save, throw original error
+                throw azureError;
+            }
             if (options && options.getURL) {
                 this.log('Retrieving URL');
                 let url = yield this.getURL(fullBlobName);

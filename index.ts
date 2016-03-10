@@ -34,6 +34,7 @@ interface IAzureBlobSaveOptions {
 class AzureBlobStorage implements IBlobStorage {
     blobService: any;
     blobStorageContainerName: string;
+    retriesCount: number;
 
     log: (...args) => void;
 
@@ -42,6 +43,14 @@ class AzureBlobStorage implements IBlobStorage {
 
         this.blobService = azure.createBlobService(connectionString);
         this.blobStorageContainerName = containerName;
+        this.retriesCount = 1;
+    }
+    
+    /**
+     * Set a number of retries when uploading a blob
+     */
+    setRetriesCount(retriesCount: number) {
+        this.retriesCount = retriesCount;
     }
 
     async save(fullBlobName: string, object: any, options?: IAzureBlobSaveOptions): Promise<any> {
@@ -125,8 +134,37 @@ class AzureBlobStorage implements IBlobStorage {
 
         this.log(`Stream length: ${readableStreamLength}`);
 
-        await promisify(this.blobService.createContainerIfNotExists.bind(this.blobService))(this.blobStorageContainerName, { publicAccessLevel: 'blob' });
-        await promisify(this.blobService.createBlockBlobFromStream.bind(this.blobService))(this.blobStorageContainerName, fullBlobName, readableStream, readableStreamLength, blobOptions);
+        let retry = false,
+            azureError = null;
+
+        do {
+            try {
+                await promisify(this.blobService.createContainerIfNotExists.bind(this.blobService))(this.blobStorageContainerName, { publicAccessLevel: 'blob' });
+                await promisify(this.blobService.createBlockBlobFromStream.bind(this.blobService))(this.blobStorageContainerName, fullBlobName, readableStream, readableStreamLength, blobOptions);
+
+                // No error, unset azure error and exit the loop
+                retry = false;
+                azureError = null;
+            } catch (err) {
+                // Decrease retries count and decide whether to retry operation
+                this.retriesCount--;
+                retry = (this.retriesCount > 0);
+                azureError = err;
+
+                this.log(`Error while saving blob: ${err}. Retries left: ${this.retriesCount}`);
+            }
+
+            await new Promise((resolve, reject) => {
+                setTimeout(() => {
+                    resolve();
+                }, 5000);
+            });
+        } while (retry);
+
+        if (azureError) {
+            // Failed to save, throw original error
+            throw azureError;
+        }
 
         if (options && options.getURL) {
             this.log('Retrieving URL');
