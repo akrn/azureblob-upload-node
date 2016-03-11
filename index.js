@@ -25,12 +25,16 @@ class AzureBlobStorage {
         this.blobService = azure.createBlobService(connectionString);
         this.blobStorageContainerName = containerName;
         this.retriesCount = 1;
+        this.retryInterval = 500;
     }
     /**
-     * Set a number of retries when uploading a blob
+     * Set a number of retries and interval between them
      */
-    setRetriesCount(retriesCount) {
+    setRetriesCount(retriesCount, retryInterval) {
         this.retriesCount = retriesCount;
+        if (retryInterval) {
+            this.retryInterval = retryInterval;
+        }
     }
     save(fullBlobName, object, options) {
         return __awaiter(this, void 0, Promise, function* () {
@@ -106,12 +110,11 @@ class AzureBlobStorage {
                     retry = (this.retriesCount > 0);
                     azureError = err;
                     this.log(`Error while saving blob: ${err}. Retries left: ${this.retriesCount}`);
+                    // Wait before the next retry
+                    if (retry) {
+                        yield this.timeout(this.retryInterval);
+                    }
                 }
-                yield new Promise((resolve, reject) => {
-                    setTimeout(() => {
-                        resolve();
-                    }, 5000);
-                });
             } while (retry);
             if (azureError) {
                 // Failed to save, throw original error
@@ -252,6 +255,13 @@ class AzureBlobStorage {
                     }
                     return resolve(passThrough);
                 });
+            });
+        });
+    }
+    timeout(ms) {
+        return __awaiter(this, void 0, Promise, function* () {
+            return new Promise((resolve, reject) => {
+                setTimeout(resolve, ms);
             });
         });
     }

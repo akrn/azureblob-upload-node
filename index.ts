@@ -35,6 +35,7 @@ class AzureBlobStorage implements IBlobStorage {
     blobService: any;
     blobStorageContainerName: string;
     retriesCount: number;
+    retryInterval: number;
 
     log: (...args) => void;
 
@@ -44,13 +45,17 @@ class AzureBlobStorage implements IBlobStorage {
         this.blobService = azure.createBlobService(connectionString);
         this.blobStorageContainerName = containerName;
         this.retriesCount = 1;
+        this.retryInterval = 500;
     }
     
     /**
-     * Set a number of retries when uploading a blob
+     * Set a number of retries and interval between them
      */
-    setRetriesCount(retriesCount: number) {
+    setRetriesCount(retriesCount: number, retryInterval?: number) {
         this.retriesCount = retriesCount;
+        if (retryInterval) {
+            this.retryInterval = retryInterval;
+        }
     }
 
     async save(fullBlobName: string, object: any, options?: IAzureBlobSaveOptions): Promise<any> {
@@ -152,13 +157,12 @@ class AzureBlobStorage implements IBlobStorage {
                 azureError = err;
 
                 this.log(`Error while saving blob: ${err}. Retries left: ${this.retriesCount}`);
-            }
 
-            await new Promise((resolve, reject) => {
-                setTimeout(() => {
-                    resolve();
-                }, 5000);
-            });
+                // Wait before the next retry
+                if (retry) {
+                    await this.timeout(this.retryInterval);
+                }
+            }
         } while (retry);
 
         if (azureError) {
@@ -332,6 +336,12 @@ class AzureBlobStorage implements IBlobStorage {
                 return resolve(passThrough);
             });
 
+        });
+    }
+
+    async timeout(ms: number): Promise<any> {
+        return new Promise((resolve, reject) => {
+            setTimeout(resolve, ms);
         });
     }
 }

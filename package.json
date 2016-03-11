@@ -1,6 +1,6 @@
 {
   "name": "azureblob-upload-node",
-  "version": "1.0.2",
+  "version": "1.0.3",
   "description": "Upload various data to azure blobs from nodejs",
   "main": "index.js",
   "scripts": {
@@ -25,6 +25,7 @@
   "devDependencies": {
     "buffer-equal": "0.0.1",
     "mocha": "^2.3.4",
+    "nock": "^7.2.2",
     "request": "^2.67.0",
     "typescript": "^1.8.0-dev.20151224"
   }

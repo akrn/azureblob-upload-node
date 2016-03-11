@@ -6,6 +6,7 @@
     },
     "files": [
         "index.ts",
-        "test/test.ts"
+        "test/test-common.ts",
+        "test/test-retries.ts"
     ]
 }
