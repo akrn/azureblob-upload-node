@@ -2,12 +2,12 @@
 /// <reference path="../typings/node/node.d.ts" />
 /// <reference path="../typings/request/request.d.ts" />
 "use strict";
-var fs = require('fs');
-var path = require('path');
-var assert = require('assert');
-var request = require('request');
+const fs = require('fs');
+const path = require('path');
+const assert = require('assert');
+const request = require('request');
 const bufferEqual = require('buffer-equal');
-var AzureBlobStorage = require('../index');
+const AzureBlobStorage = require('../index');
 const TEST_TIMEOUT = 30000;
 describe('Uploading various types of data to Azure', function () {
     this.timeout(TEST_TIMEOUT);
@@ -39,6 +39,16 @@ describe('Uploading various types of data to Azure', function () {
         let fileName = path.resolve(__dirname, 'pic.jpg'), buffer = fs.readFileSync(fileName);
         let storage = new AzureBlobStorage(process.env.AZURE_STORAGE_CONNECTION_STRING, 'test-container', true);
         storage.save('test-folder-1:pic.jpg', fileName).then(() => {
+            storage.readAsBuffer('test-folder-1:pic.jpg').then((rcvdBuffer) => {
+                assert.ok(bufferEqual(buffer, rcvdBuffer), 'Sent and received buffers are not equal');
+                done();
+            }).catch(done);
+        }).catch(done);
+    });
+    it('should upload file from local filesystem to the storage using stream, read it back and compare', (done) => {
+        let fileName = path.resolve(__dirname, 'pic.jpg'), stream = fs.createReadStream(fileName), buffer = fs.readFileSync(fileName);
+        let storage = new AzureBlobStorage(process.env.AZURE_STORAGE_CONNECTION_STRING, 'test-container', true);
+        storage.save('test-folder-1:pic.jpg', stream, { streamLength: buffer.length }).then(() => {
             storage.readAsBuffer('test-folder-1:pic.jpg').then((rcvdBuffer) => {
                 assert.ok(bufferEqual(buffer, rcvdBuffer), 'Sent and received buffers are not equal');
                 done();

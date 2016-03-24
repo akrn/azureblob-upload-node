@@ -1,10 +1,10 @@
 /// <reference path="../typings/mocha/mocha.d.ts" />
 /// <reference path="../typings/node/node.d.ts" />
 "use strict";
-var fs = require('fs');
-var path = require('path');
+const fs = require('fs');
+const path = require('path');
 const nock = require('nock');
-var AzureBlobStorage = require('../index');
+const AzureBlobStorage = require('../index');
 const TEST_TIMEOUT = 30000;
 describe('Upload object with retries', function () {
     this.timeout(TEST_TIMEOUT);

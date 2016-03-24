@@ -58,6 +58,20 @@ describe('Uploading various types of data to Azure', function() {
         }).catch(done);
     });
 
+    it('should upload file from local filesystem to the storage using stream, read it back and compare', (done) => {
+        let fileName = path.resolve(__dirname, 'pic.jpg'),
+            stream = fs.createReadStream(fileName),
+            buffer = fs.readFileSync(fileName);
+
+        let storage = new AzureBlobStorage(process.env.AZURE_STORAGE_CONNECTION_STRING, 'test-container', true);
+        storage.save('test-folder-1:pic.jpg', stream, { streamLength: buffer.length }).then(() => {
+            storage.readAsBuffer('test-folder-1:pic.jpg').then((rcvdBuffer) => {
+                assert.ok(bufferEqual(buffer, rcvdBuffer), 'Sent and received buffers are not equal');
+                done();
+            }).catch(done);
+        }).catch(done);
+    });
+
     it('should upload file from local filesystem to the storage, read it back and compare (with compression)', (done) => {
         let fileName = path.resolve(__dirname, 'pic.jpg'),
             buffer = fs.readFileSync(fileName);

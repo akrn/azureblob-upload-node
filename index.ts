@@ -64,17 +64,21 @@ class AzureBlobStorage implements IBlobStorage {
             };
 
         let readableStream,
-            readableStreamLength;
+            readableStreamLength = 0;
 
         if (object instanceof stream.Readable) {
             this.log('Object type: stream');
 
+            /* not needed if compress and expensive to get if we want to use stream
             if (!options || !options.streamLength) {
                 throw new Error('Stream length is required');
-            }
+            }*/
 
             readableStream = object;
-            readableStreamLength = options.streamLength;
+
+            if (options) {
+                readableStreamLength = options.streamLength;
+            }
 
             blobOptions.metadata['type'] = 'binary';
 
@@ -135,6 +139,10 @@ class AzureBlobStorage implements IBlobStorage {
             readableStream = compressedStream;
 
             blobOptions.metadata['compressed'] = true;
+        }
+
+        if (!readableStreamLength) {
+            throw new Error('Stream length is required');
         }
 
         this.log(`Stream length: ${readableStreamLength}`);
