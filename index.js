@@ -143,9 +143,6 @@ class AzureBlobStorage {
     readAsObject(fullBlobName) {
         return __awaiter(this, void 0, void 0, function* () {
             let metadata = Object.create(null), blobStream = yield this.readBlob(fullBlobName, metadata);
-            if (metadata.type !== 'json') {
-                throw new Error('The requested blob can\'t be downloaded as JSON object');
-            }
             let buffer = yield this.streamToBuffer(blobStream);
             return JSON.parse(buffer.toString('utf8'));
         });

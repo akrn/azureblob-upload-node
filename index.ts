@@ -203,10 +203,6 @@ class AzureBlobStorage implements IBlobStorage {
         let metadata = Object.create(null),
             blobStream = await this.readBlob(fullBlobName, metadata);
 
-        if (metadata.type !== 'json') {
-            throw new Error('The requested blob can\'t be downloaded as JSON object');
-        }
-
         let buffer = await this.streamToBuffer(blobStream);
 
         return JSON.parse(buffer.toString('utf8'));
