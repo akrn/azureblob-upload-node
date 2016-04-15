@@ -21,6 +21,7 @@ interface IBlobStorage {
 interface IBlobObject {
     fullBlobName: string;
     properties: any; // Azure-specific properties
+    metadata?: any;
 }
 
 interface IAzureBlobSaveOptions {
@@ -28,7 +29,11 @@ interface IAzureBlobSaveOptions {
     contentType?: string;
     compress?: boolean;
     getURL?: boolean;
+    metadata?: any;
 }
+
+/* Metadata keys which will be ignored when saving a blob */
+const RESERVED_METADATA_KEYS = ['type', 'compressed'];
 
 class AzureBlobStorage implements IBlobStorage {
     blobService: any;
@@ -61,6 +66,16 @@ class AzureBlobStorage implements IBlobStorage {
         let blobOptions = {
                 metadata: {}
             };
+
+        if (options.metadata) {
+            for (let key in options.metadata) {
+                if (RESERVED_METADATA_KEYS.indexOf(key) !== -1) {
+                    this.log(`Skipping reserved metadata key: ${key}`);
+                    continue;
+                }
+                blobOptions.metadata[key] = options.metadata[key];
+            }
+        }
 
         let readableStream,
             readableStreamLength = 0;
@@ -215,12 +230,21 @@ class AzureBlobStorage implements IBlobStorage {
             list: IBlobObject[];
 
         do {
-            result = await listBlobsSegmentedWithPrefixAsync(this.blobStorageContainerName, prefix, continuationToken);
+            result = await listBlobsSegmentedWithPrefixAsync(this.blobStorageContainerName, prefix, continuationToken, { include: 'metadata' });
 
             list = result[0].entries.map((entry) => {
+                // Remove reserved metadata keys
+                let metadata = {};
+                for (let key in entry.metadata) {
+                    if (RESERVED_METADATA_KEYS.indexOf(key) === -1) {
+                        metadata[key] = entry.metadata[key];
+                    }
+                }
+
                 return {
                     fullBlobName: entry.name,
-                    properties: entry.properties
+                    properties: entry.properties,
+                    metadata: metadata
                 };
             });
 

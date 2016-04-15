@@ -2,14 +2,14 @@
 /// <reference path="../typings/node/node.d.ts" />
 /// <reference path="../typings/request/request.d.ts" />
 "use strict";
-const fs = require('fs');
-const path = require('path');
-const assert = require('assert');
-const request = require('request');
+var fs = require('fs');
+var path = require('path');
+var assert = require('assert');
+var request = require('request');
 const bufferEqual = require('buffer-equal');
-const AzureBlobStorage = require('../index');
+var AzureBlobStorage = require('../index');
 const TEST_TIMEOUT = 30000;
-describe('Uploading various types of data to Azure', function () {
+xdescribe('Uploading various types of data to Azure', function () {
     this.timeout(TEST_TIMEOUT);
     it('should initialize AzureBlobStorage object properly', (done) => {
         let storage = new AzureBlobStorage(process.env.AZURE_STORAGE_CONNECTION_STRING, 'test-container', true);
@@ -66,7 +66,7 @@ describe('Uploading various types of data to Azure', function () {
         }).catch(done);
     });
 });
-describe('Listing objects', function () {
+xdescribe('Listing objects', function () {
     this.timeout(TEST_TIMEOUT);
     it('should return an array of IBlobObjects with specified prefix', (done) => {
         let storage = new AzureBlobStorage(process.env.AZURE_STORAGE_CONNECTION_STRING, 'test-container', true);
@@ -77,7 +77,7 @@ describe('Listing objects', function () {
         }).catch(done);
     });
 });
-describe('Upload object and retrieve URL', function () {
+xdescribe('Upload object and retrieve URL', function () {
     this.timeout(TEST_TIMEOUT);
     it('should upload image with specified content type and then retrieve it via HTTP', (done) => {
         let fileName = path.resolve(__dirname, 'pic.jpg'), buffer = fs.readFileSync(fileName), contentType = 'image/jpeg';
@@ -91,6 +91,20 @@ describe('Upload object and retrieve URL', function () {
                 assert.ok(bufferEqual(body, buffer), 'Sent object is not equal with object retrieved by URL');
                 done();
             });
+        }).catch(done);
+    });
+});
+describe('Upload object with additional metadata', function () {
+    this.timeout(TEST_TIMEOUT);
+    it('should upload an object with additional metadata and then access the metadata via list()', (done) => {
+        let storage = new AzureBlobStorage(process.env.AZURE_STORAGE_CONNECTION_STRING, 'test-container', true);
+        let fullBlobName = 'test-folder-1:metadata.json', metadataValue = Math.random().toString();
+        storage.save(fullBlobName, { a: 1 }, { metadata: { key: metadataValue } }).then(() => {
+            storage.list('test-folder-1:').then((list) => {
+                let blob = list.find((item) => item.fullBlobName === fullBlobName);
+                assert.ok(blob.metadata['key'] === metadataValue, 'Sent and received metadata value should be equal');
+                done();
+            }).catch(done);
         }).catch(done);
     });
 });

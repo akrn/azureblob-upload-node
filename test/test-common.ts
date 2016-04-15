@@ -13,7 +13,7 @@ import AzureBlobStorage = require('../index');
 const TEST_TIMEOUT = 30000;
 
 
-describe('Uploading various types of data to Azure', function() {
+xdescribe('Uploading various types of data to Azure', function() {
     this.timeout(TEST_TIMEOUT);
 
     it('should initialize AzureBlobStorage object properly', (done) => {
@@ -87,7 +87,7 @@ describe('Uploading various types of data to Azure', function() {
 
 });
 
-describe('Listing objects', function() {
+xdescribe('Listing objects', function() {
     this.timeout(TEST_TIMEOUT);
 
     it('should return an array of IBlobObjects with specified prefix', (done) => {
@@ -101,7 +101,7 @@ describe('Listing objects', function() {
 
 });
 
-describe('Upload object and retrieve URL', function() {
+xdescribe('Upload object and retrieve URL', function() {
     this.timeout(TEST_TIMEOUT);
 
     it('should upload image with specified content type and then retrieve it via HTTP', (done) => {
@@ -120,6 +120,25 @@ describe('Upload object and retrieve URL', function() {
                 assert.ok(bufferEqual(body, buffer), 'Sent object is not equal with object retrieved by URL');
                 done();
             });
+        }).catch(done);
+    });
+
+});
+
+describe('Upload object with additional metadata', function() {
+    this.timeout(TEST_TIMEOUT);
+
+    it('should upload an object with additional metadata and then access the metadata via list()', (done) => {
+        let storage = new AzureBlobStorage(process.env.AZURE_STORAGE_CONNECTION_STRING, 'test-container', true);
+        let fullBlobName = 'test-folder-1:metadata.json',
+            metadataValue = Math.random().toString();
+
+        storage.save(fullBlobName, { a: 1 }, { metadata: { key: metadataValue } }).then(() => {
+            storage.list('test-folder-1:').then((list) => {
+                let blob = list.find((item) => item.fullBlobName === fullBlobName);
+                assert.ok(blob.metadata['key'] === metadataValue, 'Sent and received metadata value should be equal');
+                done();
+            }).catch(done);
         }).catch(done);
     });
 
