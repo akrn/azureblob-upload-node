@@ -13,7 +13,7 @@ import AzureBlobStorage = require('../index');
 const TEST_TIMEOUT = 30000;
 
 
-xdescribe('Uploading various types of data to Azure', function() {
+describe('Uploading various types of data to Azure', function() {
     this.timeout(TEST_TIMEOUT);
 
     it('should initialize AzureBlobStorage object properly', (done) => {
@@ -87,7 +87,7 @@ xdescribe('Uploading various types of data to Azure', function() {
 
 });
 
-xdescribe('Listing objects', function() {
+describe('Listing objects', function() {
     this.timeout(TEST_TIMEOUT);
 
     it('should return an array of IBlobObjects with specified prefix', (done) => {
@@ -101,7 +101,7 @@ xdescribe('Listing objects', function() {
 
 });
 
-xdescribe('Upload object and retrieve URL', function() {
+describe('Upload object and retrieve URL', function() {
     this.timeout(TEST_TIMEOUT);
 
     it('should upload image with specified content type and then retrieve it via HTTP', (done) => {

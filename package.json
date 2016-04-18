@@ -1,11 +1,11 @@
 {
   "name": "azureblob-upload-node",
-  "version": "1.0.7",
+  "version": "1.0.8",
   "description": "Upload various data to azure blobs from nodejs",
   "main": "index.js",
   "scripts": {
     "pretest": "tsc",
-    "test": "mocha test/test-retries.js test/test-common.js"
+    "test": "mocha test/test-retries.js test/test-retries-read.js test/test-common.js"
   },
   "repository": {
     "type": "git",

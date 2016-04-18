@@ -10,6 +10,8 @@ describe('Upload object with retries', function () {
     this.timeout(TEST_TIMEOUT);
     // Disable network
     nock.disableNetConnect();
+    // Enable network after 10000 ms
+    setTimeout(nock.enableNetConnect, 10000);
     it('should upload image with specified content type with 5 retries', (done) => {
         let fileName = path.resolve(__dirname, 'pic.jpg'), buffer = fs.readFileSync(fileName), contentType = 'image/jpeg';
         let storage = new AzureBlobStorage(process.env.AZURE_STORAGE_CONNECTION_STRING, 'test-container', true);
@@ -18,7 +20,5 @@ describe('Upload object with retries', function () {
             console.log('Got URL:', url);
             done();
         }).catch(done);
-        // Enable network after 10000 ms
-        setTimeout(nock.enableNetConnect, 10000);
     });
 });

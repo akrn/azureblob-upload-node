@@ -9,7 +9,7 @@ var request = require('request');
 const bufferEqual = require('buffer-equal');
 var AzureBlobStorage = require('../index');
 const TEST_TIMEOUT = 30000;
-xdescribe('Uploading various types of data to Azure', function () {
+describe('Uploading various types of data to Azure', function () {
     this.timeout(TEST_TIMEOUT);
     it('should initialize AzureBlobStorage object properly', (done) => {
         let storage = new AzureBlobStorage(process.env.AZURE_STORAGE_CONNECTION_STRING, 'test-container', true);
@@ -66,7 +66,7 @@ xdescribe('Uploading various types of data to Azure', function () {
         }).catch(done);
     });
 });
-xdescribe('Listing objects', function () {
+describe('Listing objects', function () {
     this.timeout(TEST_TIMEOUT);
     it('should return an array of IBlobObjects with specified prefix', (done) => {
         let storage = new AzureBlobStorage(process.env.AZURE_STORAGE_CONNECTION_STRING, 'test-container', true);
@@ -77,7 +77,7 @@ xdescribe('Listing objects', function () {
         }).catch(done);
     });
 });
-xdescribe('Upload object and retrieve URL', function () {
+describe('Upload object and retrieve URL', function () {
     this.timeout(TEST_TIMEOUT);
     it('should upload image with specified content type and then retrieve it via HTTP', (done) => {
         let fileName = path.resolve(__dirname, 'pic.jpg'), buffer = fs.readFileSync(fileName), contentType = 'image/jpeg';

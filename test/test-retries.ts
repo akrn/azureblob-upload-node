@@ -16,6 +16,9 @@ describe('Upload object with retries', function() {
     // Disable network
     nock.disableNetConnect();
 
+    // Enable network after 10000 ms
+    setTimeout(nock.enableNetConnect, 10000);
+
     it('should upload image with specified content type with 5 retries', (done) => {
         let fileName = path.resolve(__dirname, 'pic.jpg'),
             buffer = fs.readFileSync(fileName),
@@ -28,9 +31,6 @@ describe('Upload object with retries', function() {
             console.log('Got URL:', url);
             done();
         }).catch(done);
-
-        // Enable network after 10000 ms
-        setTimeout(nock.enableNetConnect, 10000);
     });
 
 });

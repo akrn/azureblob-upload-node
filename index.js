@@ -42,7 +42,7 @@ class AzureBlobStorage {
             let blobOptions = {
                 metadata: {}
             };
-            if (options.metadata) {
+            if (options && options.metadata) {
                 for (let key in options.metadata) {
                     if (RESERVED_METADATA_KEYS.indexOf(key) !== -1) {
                         this.log(`Skipping reserved metadata key: ${key}`);
@@ -249,32 +249,70 @@ class AzureBlobStorage {
     }
     readBlob(fullBlobName, metadata) {
         return __awaiter(this, void 0, Promise, function* () {
-            return new Promise((resolve, reject) => {
-                let writable = new stream.Writable(), passThrough = new stream.PassThrough();
-                let total = 0;
+            let writable, passThrough, totalData = 0;
+            function createStreams() {
+                writable = new stream.Writable();
+                passThrough = new stream.PassThrough();
+                totalData = 0;
                 writable._write = function (chunk, _, next) {
-                    total += chunk.length;
+                    totalData += chunk.length;
                     passThrough.push(chunk);
                     next();
                 };
                 writable.on('finish', () => {
                     passThrough.end();
                 });
-                this.blobService.getBlobToStream(this.blobStorageContainerName, fullBlobName, writable, (err, result, _) => {
+                return writable, passThrough;
+            }
+            let retry = false, azureError = null, result;
+            do {
+                try {
+                    createStreams();
+                    result = yield this.getBlobToStream(this.blobStorageContainerName, fullBlobName, writable);
+                    // No error, unset azure error and exit the loop
+                    retry = false;
+                    azureError = null;
+                }
+                catch (err) {
+                    // Decrease retries count and decide whether to retry operation
+                    this.retriesCount--;
+                    retry = (this.retriesCount > 0);
+                    azureError = err;
+                    this.log(`Error while reading blob: ${err}. Retries left: ${this.retriesCount}`);
+                    // Wait before the next retry
+                    if (retry) {
+                        yield this.timeout(this.retryInterval);
+                    }
+                }
+            } while (retry);
+            if (azureError) {
+                // Failed to read, throw original error
+                throw azureError;
+            }
+            if (metadata && result.metadata) {
+                // In case we have metadata and supplied an object to read it there
+                Object.assign(metadata, result.metadata);
+            }
+            if (result.metadata && result.metadata.compressed) {
+                this.log('Decompressing compressed blob...');
+                let decomressedPassThroughStream = new stream.PassThrough();
+                passThrough.pipe(zlib.createGunzip()).pipe(decomressedPassThroughStream);
+                return decomressedPassThroughStream;
+            }
+            return passThrough;
+        });
+    }
+    /**
+     * Wrapper around BlobService.getBlobToStream function to make it return Promise - promisify() works incorrectly here
+     */
+    getBlobToStream(containerName, fullBlobName, writableStream) {
+        return __awaiter(this, void 0, Promise, function* () {
+            return new Promise((resolve, reject) => {
+                this.blobService.getBlobToStream(containerName, fullBlobName, writableStream, (err, result, _) => {
                     if (err) {
                         return reject(err);
                     }
-                    if (metadata && result.metadata) {
-                        // In case we have metadata and supplied an object to read it there
-                        Object.assign(metadata, result.metadata);
-                    }
-                    if (result.metadata && result.metadata.compressed) {
-                        this.log('Decompressing compressed blob...');
-                        let decomressedPassThroughStream = new stream.PassThrough();
-                        passThrough.pipe(zlib.createGunzip()).pipe(decomressedPassThroughStream);
-                        return resolve(decomressedPassThroughStream);
-                    }
-                    return resolve(passThrough);
+                    resolve(result);
                 });
             });
         });

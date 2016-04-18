@@ -8,6 +8,7 @@
         "typings/node/node.d.ts",
         "index.ts",
         "test/test-common.ts",
-        "test/test-retries.ts"
+        "test/test-retries.ts",
+        "test/test-retries-read.ts"
     ]
 }
