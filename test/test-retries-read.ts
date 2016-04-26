@@ -10,6 +10,7 @@ const bufferEqual = require('buffer-equal');
 import AzureBlobStorage = require('../index');
 
 const TEST_TIMEOUT = 30000;
+const logger = console.log.bind(console);
 
 
 describe('Read object with retries', function() {
@@ -21,7 +22,7 @@ describe('Read object with retries', function() {
             buffer = fs.readFileSync(fileName),
             contentType = 'image/jpeg';
 
-        let storage = new AzureBlobStorage(process.env.AZURE_STORAGE_CONNECTION_STRING, 'test-container', true);
+        let storage = new AzureBlobStorage(process.env.AZURE_STORAGE_CONNECTION_STRING, 'test-container', logger);
         storage.setRetriesCount(5, 5000);
 
         storage.save(blobName, fileName, { contentType: contentType }).then(() => {

@@ -16,6 +16,8 @@ interface IBlobStorage {
     readAsObject(fullBlobName: string): Promise<Object>;
 
     list(prefix: string): Promise<IBlobObject[]>;
+
+    setRetriesCount(retriesCount: number, retryInterval?: number);
 }
 
 interface IBlobObject {
@@ -43,8 +45,8 @@ class AzureBlobStorage implements IBlobStorage {
 
     log: (...args) => void;
 
-    constructor(connectionString: string, containerName: string, verbose?: boolean) {
-        this.log = verbose ? console.log.bind(console) : () => void 0;
+    constructor(connectionString: string, containerName: string, loggerFunction?: (...args) => void) {
+        this.log = loggerFunction || (() => null);
 
         this.blobService = azure.createBlobService(connectionString);
         this.blobStorageContainerName = containerName;

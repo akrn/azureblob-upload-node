@@ -1,28 +1,23 @@
 "use strict";
-var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, Promise, generator) {
-    return new Promise(function (resolve, reject) {
-        generator = generator.call(thisArg, _arguments);
-        function cast(value) { return value instanceof Promise && value.constructor === Promise ? value : new Promise(function (resolve) { resolve(value); }); }
-        function onfulfill(value) { try { step("next", value); } catch (e) { reject(e); } }
-        function onreject(value) { try { step("throw", value); } catch (e) { reject(e); } }
-        function step(verb, value) {
-            var result = generator[verb](value);
-            result.done ? resolve(result.value) : cast(result.value).then(onfulfill, onreject);
-        }
-        step("next", void 0);
+var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, generator) {
+    return new (P || (P = Promise))(function (resolve, reject) {
+        function fulfilled(value) { try { step(generator.next(value)); } catch (e) { reject(e); } }
+        function rejected(value) { try { step(generator.throw(value)); } catch (e) { reject(e); } }
+        function step(result) { result.done ? resolve(result.value) : new P(function (resolve) { resolve(result.value); }).then(fulfilled, rejected); }
+        step((generator = generator.apply(thisArg, _arguments)).next());
     });
 };
-var stream = require('stream');
-var fs = require('fs');
-var zlib = require('zlib');
+const stream = require('stream');
+const fs = require('fs');
+const zlib = require('zlib');
 const azure = require('azure-storage');
 const promisify = require('es6-promisify');
 const streamBuffers = require('stream-buffers');
 /* Metadata keys which will be ignored when saving a blob */
 const RESERVED_METADATA_KEYS = ['type', 'compressed'];
 class AzureBlobStorage {
-    constructor(connectionString, containerName, verbose) {
-        this.log = verbose ? console.log.bind(console) : () => void 0;
+    constructor(connectionString, containerName, loggerFunction) {
+        this.log = loggerFunction || (() => null);
         this.blobService = azure.createBlobService(connectionString);
         this.blobStorageContainerName = containerName;
         this.retriesCount = 1;

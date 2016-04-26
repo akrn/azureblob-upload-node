@@ -8,6 +8,7 @@ const nock = require('nock');
 import AzureBlobStorage = require('../index');
 
 const TEST_TIMEOUT = 30000;
+const logger = console.log.bind(console);
 
 
 describe('Upload object with retries', function() {
@@ -24,7 +25,7 @@ describe('Upload object with retries', function() {
             buffer = fs.readFileSync(fileName),
             contentType = 'image/jpeg';
 
-        let storage = new AzureBlobStorage(process.env.AZURE_STORAGE_CONNECTION_STRING, 'test-container', true);
+        let storage = new AzureBlobStorage(process.env.AZURE_STORAGE_CONNECTION_STRING, 'test-container', logger);
         storage.setRetriesCount(5, 5000);
 
         storage.save('test-folder-1:pic.jpg', fileName, { contentType: contentType, getURL: true }).then((url) => {
