@@ -160,10 +160,21 @@ class AzureBlobStorage {
     }
     list(prefix) {
         return __awaiter(this, void 0, Promise, function* () {
-            let listBlobsSegmentedWithPrefixAsync = promisify(this.blobService.listBlobsSegmentedWithPrefix.bind(this.blobService)), result, continuationToken = null, list;
-            do {
-                result = yield listBlobsSegmentedWithPrefixAsync(this.blobStorageContainerName, prefix, continuationToken, { include: 'metadata' });
-                list = result[0].entries.map((entry) => {
+            let list = [], blobIterator = this.iterator(prefix), item;
+            while (item = yield blobIterator.next()) {
+                list.push(item);
+            }
+            return list;
+        });
+    }
+    iterator(prefix) {
+        let continuationToken = null;
+        let blobIterator = new IBlobIterator((cb) => {
+            this.blobService.listBlobsSegmentedWithPrefix(this.blobStorageContainerName, prefix, continuationToken, { include: 'metadata' }, (err, result) => {
+                if (err) {
+                    return cb(err, [], false);
+                }
+                let list = result.entries.map(entry => {
                     // Remove reserved metadata keys
                     let metadata = {};
                     for (let key in entry.metadata) {
@@ -177,9 +188,22 @@ class AzureBlobStorage {
                         metadata: metadata
                     };
                 });
-                continuationToken = result[0].continuationToken;
-            } while (continuationToken);
-            return list;
+                continuationToken = result.continuationToken;
+                cb(null, list, !!continuationToken);
+            });
+        });
+        return blobIterator;
+    }
+    delete(fullBlobName) {
+        return __awaiter(this, void 0, Promise, function* () {
+            return new Promise((resolve, reject) => {
+                this.blobService.deleteBlobIfExists(this.blobStorageContainerName, fullBlobName, (err, result) => {
+                    if (err) {
+                        return reject(err);
+                    }
+                    resolve(result);
+                });
+            });
         });
     }
     getURL(fullBlobName) {
@@ -316,6 +340,40 @@ class AzureBlobStorage {
         return __awaiter(this, void 0, Promise, function* () {
             return new Promise((resolve, reject) => {
                 setTimeout(resolve, ms);
+            });
+        });
+    }
+}
+class IBlobIterator {
+    constructor(requestFunction) {
+        this.items = [];
+        this.stop = false;
+        this.requestFunction = requestFunction;
+    }
+    next() {
+        return __awaiter(this, void 0, void 0, function* () {
+            if (!this.items.length && !this.stop) {
+                yield this.request();
+            }
+            if (this.items.length) {
+                return this.items.shift();
+            }
+            return null;
+        });
+    }
+    request() {
+        return __awaiter(this, void 0, void 0, function* () {
+            return new Promise((resolve, reject) => {
+                this.requestFunction((err, data, more) => {
+                    if (err) {
+                        return reject(err);
+                    }
+                    if (!more) {
+                        this.stop = true;
+                    }
+                    this.items = this.items.concat(data);
+                    resolve();
+                });
             });
         });
     }

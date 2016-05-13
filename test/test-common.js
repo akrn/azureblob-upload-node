@@ -2,6 +2,14 @@
 /// <reference path="../typings/node/node.d.ts" />
 /// <reference path="../typings/request/request.d.ts" />
 "use strict";
+var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, generator) {
+    return new (P || (P = Promise))(function (resolve, reject) {
+        function fulfilled(value) { try { step(generator.next(value)); } catch (e) { reject(e); } }
+        function rejected(value) { try { step(generator.throw(value)); } catch (e) { reject(e); } }
+        function step(result) { result.done ? resolve(result.value) : new P(function (resolve) { resolve(result.value); }).then(fulfilled, rejected); }
+        step((generator = generator.apply(thisArg, _arguments)).next());
+    });
+};
 const fs = require('fs');
 const path = require('path');
 const assert = require('assert');
@@ -107,5 +115,36 @@ describe('Upload object with additional metadata', function () {
                 done();
             }).catch(done);
         }).catch(done);
+    });
+});
+describe('Delete blob', function () {
+    this.timeout(TEST_TIMEOUT);
+    it('should upload blob and then delete it', (done) => {
+        let storage = new AzureBlobStorage(process.env.AZURE_STORAGE_CONNECTION_STRING, 'test-container', logger);
+        let fullBlobName = 'test-folder-2:object.json';
+        storage.save(fullBlobName, { a: 1 }).then(() => {
+            storage.delete(fullBlobName).then((deleted) => {
+                assert.ok(deleted, 'Blob wasn\'t deleted');
+                storage.list('test-folder-2:').then(list => {
+                    let blob = list.filter((item) => item.fullBlobName === fullBlobName);
+                    assert.ok(blob.length === 0, 'Listing should not contain deleted blob');
+                    done();
+                }).catch(done);
+            }).catch(done);
+        }).catch(done);
+    });
+});
+describe('Listing objects asynchronously', function () {
+    this.timeout(TEST_TIMEOUT);
+    it('should read object step by step', (done) => {
+        let storage = new AzureBlobStorage(process.env.AZURE_STORAGE_CONNECTION_STRING, 'test-container', logger);
+        (function () {
+            return __awaiter(this, void 0, void 0, function* () {
+                let iterator = storage.iterator('test-folder-1:'), item;
+                while (item = yield iterator.next()) {
+                    console.log('item: ', item.fullBlobName);
+                }
+            });
+        })().then(done).catch(done);
     });
 });

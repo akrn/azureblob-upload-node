@@ -16,6 +16,8 @@ interface IBlobStorage {
     readAsObject(fullBlobName: string): Promise<Object>;
 
     list(prefix: string): Promise<IBlobObject[]>;
+    iterator(prefix: string): IBlobIterator;
+    delete(fullBlobName: string): Promise<boolean>;
 
     setRetriesCount(retriesCount: number, retryInterval?: number);
 }
@@ -226,36 +228,60 @@ class AzureBlobStorage implements IBlobStorage {
     }
 
     async list(prefix: string): Promise<IBlobObject[]> {
-        let listBlobsSegmentedWithPrefixAsync = promisify(this.blobService.listBlobsSegmentedWithPrefix.bind(this.blobService)),
-            result,
-            continuationToken = null,
-            list: IBlobObject[];
+        let list: IBlobObject[] = [],
+            blobIterator = this.iterator(prefix),
+            item;
 
-        do {
-            result = await listBlobsSegmentedWithPrefixAsync(this.blobStorageContainerName, prefix, continuationToken, { include: 'metadata' });
-
-            list = result[0].entries.map((entry) => {
-                // Remove reserved metadata keys
-                let metadata = {};
-                for (let key in entry.metadata) {
-                    if (RESERVED_METADATA_KEYS.indexOf(key) === -1) {
-                        metadata[key] = entry.metadata[key];
-                    }
-                }
-
-                return {
-                    fullBlobName: entry.name,
-                    properties: entry.properties,
-                    metadata: metadata
-                };
-            });
-
-            continuationToken = result[0].continuationToken;
-
-            // Check if we have more items to retrieve
-        } while (continuationToken);
+        while (item = await blobIterator.next()) {
+            list.push(item);
+        }
 
         return list;
+    }
+
+    iterator(prefix: string): IBlobIterator {
+        let continuationToken = null;
+
+        let blobIterator = new IBlobIterator((cb: (err: any, data: IBlobObject[], more: boolean) => any) => {
+            this.blobService.listBlobsSegmentedWithPrefix(this.blobStorageContainerName, prefix, continuationToken, { include: 'metadata' }, (err, result) => {
+                if (err) {
+                    return cb(err, [], false);
+                }
+
+                let list: IBlobObject[] = result.entries.map(entry => {
+                    // Remove reserved metadata keys
+                    let metadata = {};
+                    for (let key in entry.metadata) {
+                        if (RESERVED_METADATA_KEYS.indexOf(key) === -1) {
+                            metadata[key] = entry.metadata[key];
+                        }
+                    }
+
+                    return {
+                        fullBlobName: entry.name,
+                        properties: entry.properties,
+                        metadata: metadata
+                    };
+                });
+
+                continuationToken = result.continuationToken;
+                cb(null, list, !!continuationToken);
+            });
+        });
+
+        return blobIterator;
+    }
+
+    async delete(fullBlobName: string): Promise<boolean> {
+        return new Promise<boolean>((resolve, reject) => {
+            this.blobService.deleteBlobIfExists(this.blobStorageContainerName, fullBlobName, (err, result: boolean) => {
+                if (err) {
+                    return reject(err);
+                }
+
+                resolve(result);
+            });
+        });
     }
 
     getURL(fullBlobName: string): string {
@@ -419,6 +445,46 @@ class AzureBlobStorage implements IBlobStorage {
             setTimeout(resolve, ms);
         });
     }
+}
+
+class IBlobIterator {
+    private items: any[] = [];
+    private stop: boolean = false;
+    private requestFunction: (cb: (err: any, data: IBlobObject[], more: boolean) => any) => any;
+
+    constructor(requestFunction: (cb: (err: any, data: IBlobObject[], more: boolean) => any) => any) {
+        this.requestFunction = requestFunction;
+    }
+
+    async next() {
+        if (!this.items.length && !this.stop) {
+            await this.request();
+        }
+
+        if (this.items.length) {
+            return this.items.shift();
+        }
+
+        return null;
+    }
+
+    private async request() {
+        return new Promise((resolve, reject) => {
+            this.requestFunction((err: any, data: IBlobObject[], more: boolean) => {
+                if (err) {
+                    return reject(err);
+                }
+
+                if (!more) {
+                    this.stop = true;
+                }
+
+                this.items = this.items.concat(data);
+                resolve();
+            });
+        });
+    }
+
 }
 
 export = AzureBlobStorage;
