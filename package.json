@@ -1,6 +1,6 @@
 {
   "name": "azureblob-upload-node",
-  "version": "1.0.9",
+  "version": "1.0.10",
   "description": "Upload various data to azure blobs from nodejs",
   "main": "index.js",
   "scripts": {
