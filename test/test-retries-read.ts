@@ -13,7 +13,7 @@ const TEST_TIMEOUT = 30000;
 const logger = console.log.bind(console);
 
 
-describe('Read object with retries', function() {
+describe('Read 3 objects + write 1 object in parallel with retries', function() {
     this.timeout(TEST_TIMEOUT);
 
     it('should read image with 5 retries', (done) => {
@@ -32,8 +32,15 @@ describe('Read object with retries', function() {
             // Enable network after 10000 ms
             setTimeout(nock.enableNetConnect, 10000);
 
-            storage.readAsBuffer(blobName).then((rcvdBuffer) => {
-                assert.ok(bufferEqual(buffer, rcvdBuffer), 'Sent and received buffers are not equal');
+            let promises = [
+                storage.readAsBuffer(blobName),
+                storage.readAsBuffer(blobName),
+                storage.readAsBuffer(blobName),
+                storage.save('test-folder-1:object.json', { a: 1 })
+            ];
+
+            Promise.all(promises).then(rcvdBuffers => {
+                [0, 1, 2].forEach(idx => assert.ok(bufferEqual(buffer, rcvdBuffers[idx]), 'Sent and received buffers are not equal'));
                 done();
             }).catch(done);
         }).catch(done);

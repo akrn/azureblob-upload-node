@@ -166,7 +166,8 @@ class AzureBlobStorage implements IBlobStorage {
         this.log(`Stream length: ${readableStreamLength}`);
 
         let retry = false,
-            azureError = null;
+            azureError = null,
+            retriesCount = this.retriesCount;
 
         do {
             try {
@@ -178,11 +179,11 @@ class AzureBlobStorage implements IBlobStorage {
                 azureError = null;
             } catch (err) {
                 // Decrease retries count and decide whether to retry operation
-                this.retriesCount--;
-                retry = (this.retriesCount > 0);
+                retriesCount--;
+                retry = (retriesCount > 0);
                 azureError = err;
 
-                this.log(`Error while saving blob: ${err}. Retries left: ${this.retriesCount}`);
+                this.log(`Error while saving blob: ${err}. Retries left: ${retriesCount}`);
 
                 // Wait before the next retry
                 if (retry) {
@@ -378,7 +379,8 @@ class AzureBlobStorage implements IBlobStorage {
 
         let retry = false,
             azureError = null,
-            result;
+            result,
+            retriesCount = this.retriesCount;
 
         do {
             try {
@@ -390,11 +392,11 @@ class AzureBlobStorage implements IBlobStorage {
                 azureError = null;
             } catch (err) {
                 // Decrease retries count and decide whether to retry operation
-                this.retriesCount--;
-                retry = (this.retriesCount > 0);
+                retriesCount--;
+                retry = (retriesCount > 0);
                 azureError = err;
 
-                this.log(`Error while reading blob: ${err}. Retries left: ${this.retriesCount}`);
+                this.log(`Error while reading blob: ${err}. Retries left: ${retriesCount}`);
 
                 // Wait before the next retry
                 if (retry) {

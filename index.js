@@ -106,7 +106,7 @@ class AzureBlobStorage {
                 throw new Error('Stream length is required');
             }
             this.log(`Stream length: ${readableStreamLength}`);
-            let retry = false, azureError = null;
+            let retry = false, azureError = null, retriesCount = this.retriesCount;
             do {
                 try {
                     yield promisify(this.blobService.createContainerIfNotExists.bind(this.blobService))(this.blobStorageContainerName, { publicAccessLevel: 'blob' });
@@ -117,10 +117,10 @@ class AzureBlobStorage {
                 }
                 catch (err) {
                     // Decrease retries count and decide whether to retry operation
-                    this.retriesCount--;
-                    retry = (this.retriesCount > 0);
+                    retriesCount--;
+                    retry = (retriesCount > 0);
                     azureError = err;
-                    this.log(`Error while saving blob: ${err}. Retries left: ${this.retriesCount}`);
+                    this.log(`Error while saving blob: ${err}. Retries left: ${retriesCount}`);
                     // Wait before the next retry
                     if (retry) {
                         yield this.timeout(this.retryInterval);
@@ -283,7 +283,7 @@ class AzureBlobStorage {
                 });
                 return writable, passThrough;
             }
-            let retry = false, azureError = null, result;
+            let retry = false, azureError = null, result, retriesCount = this.retriesCount;
             do {
                 try {
                     createStreams();
@@ -294,10 +294,10 @@ class AzureBlobStorage {
                 }
                 catch (err) {
                     // Decrease retries count and decide whether to retry operation
-                    this.retriesCount--;
-                    retry = (this.retriesCount > 0);
+                    retriesCount--;
+                    retry = (retriesCount > 0);
                     azureError = err;
-                    this.log(`Error while reading blob: ${err}. Retries left: ${this.retriesCount}`);
+                    this.log(`Error while reading blob: ${err}. Retries left: ${retriesCount}`);
                     // Wait before the next retry
                     if (retry) {
                         yield this.timeout(this.retryInterval);
