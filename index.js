@@ -2,14 +2,14 @@
 var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, generator) {
     return new (P || (P = Promise))(function (resolve, reject) {
         function fulfilled(value) { try { step(generator.next(value)); } catch (e) { reject(e); } }
-        function rejected(value) { try { step(generator.throw(value)); } catch (e) { reject(e); } }
+        function rejected(value) { try { step(generator["throw"](value)); } catch (e) { reject(e); } }
         function step(result) { result.done ? resolve(result.value) : new P(function (resolve) { resolve(result.value); }).then(fulfilled, rejected); }
-        step((generator = generator.apply(thisArg, _arguments)).next());
+        step((generator = generator.apply(thisArg, _arguments || [])).next());
     });
 };
-const stream = require('stream');
-const fs = require('fs');
-const zlib = require('zlib');
+const stream = require("stream");
+const fs = require("fs");
+const zlib = require("zlib");
 const azure = require('azure-storage');
 const promisify = require('es6-promisify');
 const streamBuffers = require('stream-buffers');
@@ -33,7 +33,7 @@ class AzureBlobStorage {
         }
     }
     save(fullBlobName, object, options) {
-        return __awaiter(this, void 0, Promise, function* () {
+        return __awaiter(this, void 0, void 0, function* () {
             let blobOptions = {
                 metadata: {}
             };
@@ -139,27 +139,27 @@ class AzureBlobStorage {
         });
     }
     read(fullBlobName, writableStream) {
-        return __awaiter(this, void 0, Promise, function* () {
+        return __awaiter(this, void 0, void 0, function* () {
             let blobStream = yield this.readBlob(fullBlobName);
             blobStream.pipe(writableStream);
         });
     }
     readAsBuffer(fullBlobName) {
-        return __awaiter(this, void 0, Promise, function* () {
+        return __awaiter(this, void 0, void 0, function* () {
             let passThroughStream = new stream.PassThrough();
             let blobStream = yield this.readBlob(fullBlobName);
             return yield this.streamToBuffer(blobStream);
         });
     }
     readAsObject(fullBlobName) {
-        return __awaiter(this, void 0, Promise, function* () {
+        return __awaiter(this, void 0, void 0, function* () {
             let metadata = Object.create(null), blobStream = yield this.readBlob(fullBlobName, metadata);
             let buffer = yield this.streamToBuffer(blobStream);
             return JSON.parse(buffer.toString('utf8'));
         });
     }
     list(prefix) {
-        return __awaiter(this, void 0, Promise, function* () {
+        return __awaiter(this, void 0, void 0, function* () {
             let list = [], blobIterator = this.iterator(prefix), item;
             while (item = yield blobIterator.next()) {
                 list.push(item);
@@ -195,7 +195,7 @@ class AzureBlobStorage {
         return blobIterator;
     }
     delete(fullBlobName) {
-        return __awaiter(this, void 0, Promise, function* () {
+        return __awaiter(this, void 0, void 0, function* () {
             return new Promise((resolve, reject) => {
                 this.blobService.deleteBlobIfExists(this.blobStorageContainerName, fullBlobName, (err, result) => {
                     if (err) {
@@ -220,7 +220,7 @@ class AzureBlobStorage {
     }
     // Private methods
     streamToBuffer(readableStream) {
-        return __awaiter(this, void 0, Promise, function* () {
+        return __awaiter(this, void 0, void 0, function* () {
             return new Promise((resolve, reject) => {
                 let buffers = [];
                 readableStream
@@ -237,7 +237,7 @@ class AzureBlobStorage {
         });
     }
     compressStream(readableStream, writableStream) {
-        return __awaiter(this, void 0, Promise, function* () {
+        return __awaiter(this, void 0, void 0, function* () {
             return new Promise((resolve, reject) => {
                 let length = 0, counterStream = new stream.PassThrough(), zlibStream = zlib.createGzip();
                 counterStream
@@ -267,7 +267,7 @@ class AzureBlobStorage {
         });
     }
     readBlob(fullBlobName, metadata) {
-        return __awaiter(this, void 0, Promise, function* () {
+        return __awaiter(this, void 0, void 0, function* () {
             let writable, passThrough, totalData = 0;
             function createStreams() {
                 writable = new stream.Writable();
@@ -281,7 +281,6 @@ class AzureBlobStorage {
                 writable.on('finish', () => {
                     passThrough.end();
                 });
-                return writable, passThrough;
             }
             let retry = false, azureError = null, result, retriesCount = this.retriesCount;
             do {
@@ -325,7 +324,7 @@ class AzureBlobStorage {
      * Wrapper around BlobService.getBlobToStream function to make it return Promise - promisify() works incorrectly here
      */
     getBlobToStream(containerName, fullBlobName, writableStream) {
-        return __awaiter(this, void 0, Promise, function* () {
+        return __awaiter(this, void 0, void 0, function* () {
             return new Promise((resolve, reject) => {
                 this.blobService.getBlobToStream(containerName, fullBlobName, writableStream, (err, result, _) => {
                     if (err) {
@@ -337,7 +336,7 @@ class AzureBlobStorage {
         });
     }
     timeout(ms) {
-        return __awaiter(this, void 0, Promise, function* () {
+        return __awaiter(this, void 0, void 0, function* () {
             return new Promise((resolve, reject) => {
                 setTimeout(resolve, ms);
             });

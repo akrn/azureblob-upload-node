@@ -1,17 +1,17 @@
 /// <reference path="../typings/mocha/mocha.d.ts" />
 /// <reference path="../typings/node/node.d.ts" />
 "use strict";
-const fs = require('fs');
-const path = require('path');
-const assert = require('assert');
+const fs = require("fs");
+const path = require("path");
+const assert = require("assert");
 const nock = require('nock');
 const bufferEqual = require('buffer-equal');
-const AzureBlobStorage = require('../index');
+const AzureBlobStorage = require("../index");
 const TEST_TIMEOUT = 30000;
 const logger = console.log.bind(console);
 describe('Read 3 objects + write 1 object in parallel with retries', function () {
     this.timeout(TEST_TIMEOUT);
-    it('should read image with 5 retries', (done) => {
+    it('should read 3 objects + write 1 object in parallel with retries', done => {
         let fileName = path.resolve(__dirname, 'pic.jpg'), blobName = 'test-folder-1:pic.jpg', buffer = fs.readFileSync(fileName), contentType = 'image/jpeg';
         let storage = new AzureBlobStorage(process.env.AZURE_STORAGE_CONNECTION_STRING, 'test-container', logger);
         storage.setRetriesCount(5, 5000);

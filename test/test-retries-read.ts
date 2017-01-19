@@ -16,7 +16,7 @@ const logger = console.log.bind(console);
 describe('Read 3 objects + write 1 object in parallel with retries', function() {
     this.timeout(TEST_TIMEOUT);
 
-    it('should read image with 5 retries', (done) => {
+    it('should read 3 objects + write 1 object in parallel with retries', done => {
         let fileName = path.resolve(__dirname, 'pic.jpg'),
             blobName = 'test-folder-1:pic.jpg',
             buffer = fs.readFileSync(fileName),

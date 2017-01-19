@@ -373,8 +373,6 @@ class AzureBlobStorage implements IBlobStorage {
             writable.on('finish', () => {
                 passThrough.end();
             });
-
-            return writable, passThrough;
         }
 
         let retry = false,
